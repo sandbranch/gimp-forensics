@@ -1,0 +1,230 @@
+{
+ "comment": "Test files for the Content Credentials plug-in, fetched by fetch-images.py into tests/content-credentials/images (not in git). Never add personal photos here.",
+ "files": [
+  {
+   "name": "adobe-20220124-A.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-A.jpg",
+   "sha256": "f999fd78bfe8a83c96e468a078830ba94485bc1bc6fd086fb94a43bd29dd0f23",
+   "size": 61720,
+   "what": "no credentials",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-C.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-C.jpg",
+   "sha256": "75a8da33f6eaf1e16bf3b42cd78913b22b2e6a671fda217a508b1ba4230ce864",
+   "size": 140297,
+   "what": "one claim, test signer",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-CAI.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-CAI.jpg",
+   "sha256": "37ac97882b8d9371d8a5a781ff9434804b8c19addda0048251a6f64ea0a0c40f",
+   "size": 436261,
+   "what": "two ingredients",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-CACAICAICICA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-CACAICAICICA.jpg",
+   "sha256": "8bbb5d411cac117ab5f11e8784546356bc539f02696ba68f10b12b13c72c6c7a",
+   "size": 679260,
+   "what": "ingredient-heavy: four manifests, nested ingredients",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-CIE-sig-CA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-CIE-sig-CA.jpg",
+   "sha256": "9179857be72dd627ab192ee88776885ce07a31353a627f3d09ccf296bfe068ba",
+   "size": 373421,
+   "what": "an ingredient whose signature did not validate",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-E-sig-CA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-E-sig-CA.jpg",
+   "sha256": "0d4c2774f1b7e94b9613bb952b0a76b6a178d22ac6d206d257d2af1376cbbff2",
+   "size": 178709,
+   "what": "tampered: claim signature does not match",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-E-uri-CA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-E-uri-CA.jpg",
+   "sha256": "56014faf6b97532252c9bb90dcf484923a8aa7bba197e84a8555044a35e4f3a6",
+   "size": 178709,
+   "what": "tampered: an assertion changed after signing",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-E-dat-CA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-E-dat-CA.jpg",
+   "sha256": "dae9d121060cec4b6f27ee8acda85ad461cf75f2261d90b463319b787342d7f9",
+   "size": 178709,
+   "what": "tampered: image data hash mismatch",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-XCA.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-XCA.jpg",
+   "sha256": "4524a15f71dbdd9e96cd6e78a1a17c1260fff04f68900a10fd1279664d260c9e",
+   "size": 152070,
+   "what": "tampered: image data hash mismatch",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "adobe-20220124-E-clm-CAICAI.jpg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/adobe-20220124-E-clm-CAICAI.jpg",
+   "sha256": "b3ff3f00c66602280977d3e4d962a836d33ab83953d0009f7c1e6490d0065feb",
+   "size": 656258,
+   "what": "a referenced claim is missing",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "nikon-20221019-building.jpeg",
+   "url": "https://raw.githubusercontent.com/c2pa-org/public-testfiles/22beccc075707475b038d8789d0136c009e43143/legacy/1.4/image/jpeg/nikon-20221019-building.jpeg",
+   "sha256": "721e75362ccc4ff943f5140ebc89897aa501d056cfb0dc7a6aeb68382e412cc5",
+   "size": 1530098,
+   "what": "camera, signer certificate expired",
+   "licence": "CC-BY-SA-4.0",
+   "by": "C2PA public test files (github.com/c2pa-org/public-testfiles), CC BY-SA 4.0"
+  },
+  {
+   "name": "c2pa-rs-ocsp.jpg",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/ocsp.jpg",
+   "sha256": "49a6b089bf3fe610960ef91b2beb81c86b62e7d531c97f33fc029841d864b2cb",
+   "size": 285562,
+   "what": "Adobe Firefly image edited in Photoshop, signed by Adobe (Interim Trust List)",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-cloud.jpg",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/cloud.jpg",
+   "sha256": "e6ad9f51be5bb83f137322a3f260b5881738e3528aee208727e75b6daaba6092",
+   "size": 183901,
+   "what": "remote manifest only (on cai-manifests.adobe.com)",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-C_with_CAWG_data.jpg",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/C_with_CAWG_data.jpg",
+   "sha256": "fa0b257c863cb5b367135a017813ce0c1fbfc690a03e94acdd047c25c2d1ed46",
+   "size": 139636,
+   "what": "CAWG identity assertion",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.png",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.png",
+   "sha256": "0bd72c972c14e5fd27d8473c5599e801031576e1398f384c40c3394696a2619a",
+   "size": 299257,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.webp",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.webp",
+   "sha256": "006ee0871284b06a311286b9b72b3d083951ea6e9c78aa14d7894742daebfad3",
+   "size": 50408,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.avif",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.avif",
+   "sha256": "a10de8204aee73ba1786daca6390546bd7aa6b069aaa644012219a1c11246a43",
+   "size": 97436,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.heic",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.heic",
+   "sha256": "46ac93516093b70bfed23d11f651819a4fb946088a6a933d6a5d34f4fb967bad",
+   "size": 2503495,
+   "what": "base for the signed test files (GIMP 3.2.6 file-heif crashes on it: bad XMP)",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.heif",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.heif",
+   "sha256": "00d9e0636b645036f77b3809fcd26a29df71b9ee66f2865fd8729b894aeabf59",
+   "size": 293608,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.jxl",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.jxl",
+   "sha256": "b73170a9a1b783b822deae84067b1ea93dfef8f455435e0216ceadb000b22b13",
+   "size": 420610,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-test.tiff",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/test.tiff",
+   "sha256": "bc2df2e1a47a0b6394ff98f3c789efd15c1e36abf5dfa54a73cdd3947ba2095f",
+   "size": 441035,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-sample1.gif",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/sample1.gif",
+   "sha256": "831be2d59be6758c419f2cb33bf555ba95ff1e76b1b00a15247d161602156c77",
+   "size": 740473,
+   "what": "base for the signed test files",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-es256.pem",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/certs/es256.pem",
+   "sha256": "f547ec8dbf24e50b51cf9924e58c250d246ed8844304408a072801fcf70a95d7",
+   "size": 241,
+   "what": "test signing key (not for production)",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-es256.pub",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/certs/es256.pub",
+   "sha256": "2bf499037fd1fa7d803e3052c7b4ef6a0e67564aa2b805c0d7ae64d25a13c07b",
+   "size": 1835,
+   "what": "test certificate chain",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  },
+  {
+   "name": "c2pa-rs-test_cert_root_bundle.pem",
+   "url": "https://raw.githubusercontent.com/contentauth/c2pa-rs/c2pa-v0.91.0/sdk/tests/fixtures/certs/trust/test_cert_root_bundle.pem",
+   "sha256": "c67864bf6bae91c7df0abbef274abd1b03116063093ec225a8391d744f8356fc",
+   "size": 12677,
+   "what": "root of the test certificates",
+   "licence": "MIT OR Apache-2.0 (the c2pa-rs repository; no other terms stated for its test fixtures)",
+   "by": "c2pa-rs test fixtures (github.com/contentauth/c2pa-rs), Adobe"
+  }
+ ]
+}
