@@ -34,7 +34,7 @@ def result(name, ok, msg=''):
 
 def scene():
     """a photo-like scene with 8 bit values (so 8 bit and float images hold
-    the same), and a pasted square of another texture"""
+    the same), a pasted square of another texture and a cloned patch"""
     rnd = random.Random(1)
     a = array.array('f')
     for y in range(H):
@@ -49,6 +49,9 @@ def scene():
                 p = [0.8, 0.15 + 0.1 * math.sin(x * 2.1), 0.1]
             p = [min(max(c + rnd.gauss(0, 3 / 255), 0.0), 1.0) for c in p]
             a.extend([round(c * 255) / 255 for c in p] + [1.0])
+    # a cloned patch: 48 x 48 of the ground copied 100 pixels to the right
+    for y in range(160, 208):
+        a[(y * W + 130) * 4:(y * W + 178) * 4] = a[(y * W + 30) * 4:(y * W + 78) * 4]
     return a
 
 
@@ -124,6 +127,7 @@ ENUMS = {
     'forensics:noise': {'method': ['median', 'wavelet'],
                         'mode': ['color', 'luminance', 'signed']},
     'forensics:luminance-gradient': {'mode': ['normal', 'direction', 'magnitude']},
+    'forensics:clone-detect': {'mode': ['overlay', 'mask']},
 }
 
 
@@ -163,6 +167,9 @@ cases = [
     ('gradient_8_bit', 'forensics:luminance-gradient', U8, {}, 0.5 / 255 + 1e-6),
     ('gradient_float_direction', 'forensics:luminance-gradient', F32,
      {'mode': 'direction', 'intensity': 20.0}, 1e-6),
+    ('clone_float_defaults', 'forensics:clone-detect', F32, {}, 1e-6),
+    ('clone_8_bit_mask', 'forensics:clone-detect', U8,
+     {'mode': 'mask', 'block-size': 12, 'min-matches': 20}, 0.5 / 255 + 1e-6),
 ]
 cli = {}
 

@@ -7,6 +7,7 @@ checks = {
   'jpeg-ghost': 'check-jpeg-ghost.c',
   'noise': 'check-noise.c',
   'luminance-gradient': 'check-luminance-gradient.c',
+  'clone-detect': 'check-clone-detect.c',
 }
 
 foreach op, source : checks
