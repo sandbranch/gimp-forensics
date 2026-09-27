@@ -20,6 +20,7 @@ endif
 # each operation is a module of its own (Filters > Forensics in GIMP)
 operations = {
   'error-level': ['operations/error-level.c'],
+  'jpeg-ghost': ['operations/jpeg-ghost.c'],
 }
 
 modules = {}
