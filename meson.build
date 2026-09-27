@@ -24,6 +24,7 @@ operations = {
   'noise': ['operations/noise.c'],
   'luminance-gradient': ['operations/luminance-gradient.c'],
   'clone-detect': ['operations/clone-detect.c'],
+  'pca': ['operations/pca.c'],
 }
 
 modules = {}
