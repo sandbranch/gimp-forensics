@@ -797,7 +797,7 @@ test_options (void)
     {
       gdouble d;
 
-      e    = run_op (buf, OP, "output", (gint) i, "quality", 75, NULL);
+      e    = run_op (buf, OP, "mode", (gint) i, "quality", 75, NULL);
       want = reference (img, w, h, 75, FX_CHROMA_420, 0, 0, 20.0, (gint) i);
       d    = max_abs_diff (e, want, (gsize) w * h * 4);
       report (i == 1 ? "output_luminance" : "output_largest_channel", d < 1e-6,

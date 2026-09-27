@@ -118,7 +118,7 @@ def add_filter(layer, op, props):
 # GIMP's config takes enum values by their nick, GEGL by their number
 ENUMS = {
     'forensics:error-level': {'chroma': ['4:2:0', '4:2:2', '4:4:4'],
-                              'output': ['color', 'luminance', 'maximum']},
+                              'mode': ['color', 'luminance', 'maximum']},
 }
 
 
@@ -141,7 +141,7 @@ cases = [
     ('ela_16_bit', 'forensics:error-level', U16, {}, 0.5 / 65535 + 1e-6),
     ('ela_float_options', 'forensics:error-level', F32,
      {'quality': 75, 'scale': 12.5, 'chroma': '4:4:4', 'grid-x': 4, 'grid-y': 11,
-      'output': 'luminance'}, 1e-6),
+      'mode': 'luminance'}, 1e-6),
     ('ela_float_auto_levels', 'forensics:error-level', F32, {'auto-levels': True}, 1e-6),
 ]
 cli = {}

@@ -71,7 +71,7 @@ property_boolean (auto_levels, _("Auto levels"), FALSE)
                  "white, instead of by the error scale (the analysis "
                  "then needs the whole image)"))
 
-property_enum (output, _("Show"), ForensicsElaOutput, forensics_ela_output,
+property_enum (mode, _("Show"), ForensicsElaOutput, forensics_ela_output,
                FORENSICS_ELA_OUTPUT_COLOR)
   description (_("The error of each channel (color), of the brightness as "
                  "JPEG stores it (luminance), or of the channel that "
@@ -365,7 +365,7 @@ process (GeglOperation       *operation,
   job.format    = work_format (operation);
   job.quality   = o->quality;
   job.chroma    = o->chroma;
-  job.mode      = o->output;
+  job.mode      = o->mode;
   canvas_for (operation, &job.canvas);
   if (! gegl_rectangle_intersect (&job.roi, result, &job.canvas.bbox))
     return TRUE;
