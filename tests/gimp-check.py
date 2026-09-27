@@ -121,6 +121,8 @@ ENUMS = {
                               'mode': ['color', 'luminance', 'maximum']},
     'forensics:jpeg-ghost': {'chroma': ['4:2:0', '4:2:2', '4:4:4'],
                              'mode': ['normalized', 'difference', 'minimum']},
+    'forensics:noise': {'method': ['median', 'wavelet'],
+                        'mode': ['color', 'luminance', 'signed']},
 }
 
 
@@ -150,6 +152,12 @@ cases = [
     ('ghost_float_options', 'forensics:jpeg-ghost', F32,
      {'quality': 60, 'sweep-min': 40, 'sweep-max': 80, 'sweep-step': 10,
       'block-size': 8, 'mode': 'minimum', 'colormap': True, 'grid-x': 3}, 1e-6),
+    ('noise_float_defaults', 'forensics:noise', F32, {}, 1e-6),
+    ('noise_16_bit', 'forensics:noise', U16, {}, 0.5 / 65535 + 1e-6),
+    ('noise_float_options', 'forensics:noise', F32,
+     {'method': 'wavelet', 'mode': 'luminance', 'amplitude': 25.0, 'average': 9}, 1e-6),
+    ('noise_float_auto_levels', 'forensics:noise', F32,
+     {'radius': 2, 'mode': 'signed', 'auto-levels': True}, 1e-6),
 ]
 cli = {}
 

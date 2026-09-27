@@ -330,33 +330,11 @@ test_forensic (void)
 }
 
 /* 3. a never compressed texture: the same error everywhere ------------- */
-static gfloat *
-make_texture (gint w, gint h)
-{
-  gfloat *p = g_new (gfloat, (gsize) w * h * 4);
-  Rng     rng = { 4242 };
-  gint    x, y;
-
-  for (y = 0; y < h; y++)
-    for (x = 0; x < w; x++)
-      {
-        gdouble t = 0.6 * value_noise (7, x / 5.0, y / 5.0) +
-                    0.4 * value_noise (8, x / 1.7, y / 1.7);
-        gfloat *q = p + ((gsize) y * w + x) * 4;
-
-        q[0] = CLAMP (0.3 + 0.4 * t + 4.0 / 255 * rng_gauss (&rng), 0, 1);
-        q[1] = CLAMP (0.35 + 0.35 * t + 4.0 / 255 * rng_gauss (&rng), 0, 1);
-        q[2] = CLAMP (0.25 + 0.3 * t + 4.0 / 255 * rng_gauss (&rng), 0, 1);
-        q[3] = 1;
-      }
-  return p;
-}
-
 static void
 test_uniform (void)
 {
   const gint  w = 512, h = 512;
-  gfloat     *img = make_texture (w, h);
+  gfloat     *img = make_texture (w, h, 4.0);
   GeglBuffer *buf = buffer_from (img, w, h, WORK);
   gfloat     *e   = ela (buf, 90, FX_CHROMA_420, 0, 0);
   gdouble     v[256], mean = 0, sd = 0, lo = G_MAXDOUBLE, hi = 0;

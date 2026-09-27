@@ -249,6 +249,39 @@ make_scene (gint w, gint h, guint32 seed, gdouble grain)
   return p;
 }
 
+/* a stationary texture, w x h R'G'B'A float, with grain (sigma, in
+ * levels of 8 bit): the same statistics everywhere. With fine detail
+ * (down to 2 pixels) or smooth (5 pixels and up, like skin, walls, sky) */
+static inline gfloat *
+make_texture_of (gint w, gint h, gdouble grain, gboolean fine)
+{
+  gfloat *p = g_new (gfloat, (gsize) w * h * 4);
+  Rng     rng = { 4242 };
+  gint    x, y;
+
+  for (y = 0; y < h; y++)
+    for (x = 0; x < w; x++)
+      {
+        gdouble t = fine ? 0.6 * value_noise (7, x / 5.0, y / 5.0) +
+                           0.4 * value_noise (8, x / 1.7, y / 1.7)
+                         : 0.6 * value_noise (7, x / 12.0, y / 12.0) +
+                           0.4 * value_noise (8, x / 5.0, y / 5.0);
+        gfloat *q = p + ((gsize) y * w + x) * 4;
+
+        q[0] = CLAMP (0.3 + 0.4 * t + grain / 255 * rng_gauss (&rng), 0, 1);
+        q[1] = CLAMP (0.35 + 0.35 * t + grain / 255 * rng_gauss (&rng), 0, 1);
+        q[2] = CLAMP (0.25 + 0.3 * t + grain / 255 * rng_gauss (&rng), 0, 1);
+        q[3] = 1;
+      }
+  return p;
+}
+
+static inline gfloat *
+make_texture (gint w, gint h, gdouble grain)
+{
+  return make_texture_of (w, h, grain, TRUE);
+}
+
 static inline GeglBuffer *
 buffer_from (const gfloat *pixels, gint w, gint h, const gchar *format)
 {
