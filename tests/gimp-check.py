@@ -128,6 +128,7 @@ ENUMS = {
                         'mode': ['color', 'luminance', 'signed']},
     'forensics:luminance-gradient': {'mode': ['normal', 'direction', 'magnitude']},
     'forensics:clone-detect': {'mode': ['overlay', 'mask']},
+    'forensics:pca': {'mode': ['projection', 'distance']},
 }
 
 
@@ -170,6 +171,9 @@ cases = [
     ('clone_float_defaults', 'forensics:clone-detect', F32, {}, 1e-6),
     ('clone_8_bit_mask', 'forensics:clone-detect', U8,
      {'mode': 'mask', 'block-size': 12, 'min-matches': 20}, 0.5 / 255 + 1e-6),
+    ('pca_float_defaults', 'forensics:pca', F32, {}, 1e-6),
+    ('pca_float_distance', 'forensics:pca', F32,
+     {'component': 1, 'mode': 'distance', 'scale': 2.0, 'invert': True}, 1e-6),
 ]
 cli = {}
 

@@ -8,6 +8,7 @@ checks = {
   'noise': 'check-noise.c',
   'luminance-gradient': 'check-luminance-gradient.c',
   'clone-detect': 'check-clone-detect.c',
+  'pca': 'check-pca.c',
 }
 
 foreach op, source : checks
