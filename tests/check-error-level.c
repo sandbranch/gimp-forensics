@@ -20,52 +20,9 @@
 
 #include "check-common.h"
 #include <gegl-plugin.h>
-#include "forensics-jpeg.h"
+#include "check-jpeg.h"
 
 #define OP "forensics:error-level"
-
-/* 8 bit R'G'B' of an R'G'B'A float image, as the operation reads it */
-static guint8 *
-to_u8 (const gfloat *p, gint w, gint h)
-{
-  guint8 *q = g_new (guint8, (gsize) w * h * 3);
-  gsize   i;
-
-  for (i = 0; i < (gsize) w * h; i++)
-    {
-      q[3 * i + 0] = fx_to_u8 (p[4 * i + 0]);
-      q[3 * i + 1] = fx_to_u8 (p[4 * i + 1]);
-      q[3 * i + 2] = fx_to_u8 (p[4 * i + 2]);
-    }
-  return q;
-}
-
-static gfloat *
-from_u8 (const guint8 *q, gint w, gint h)
-{
-  gfloat *p = g_new (gfloat, (gsize) w * h * 4);
-  gsize   i;
-
-  for (i = 0; i < (gsize) w * h; i++)
-    {
-      p[4 * i + 0] = q[3 * i + 0] / 255.0f;
-      p[4 * i + 1] = q[3 * i + 1] / 255.0f;
-      p[4 * i + 2] = q[3 * i + 2] / 255.0f;
-      p[4 * i + 3] = 1.0f;
-    }
-  return p;
-}
-
-/* a JPEG round trip of a whole 8 bit image (a file saved and opened) */
-static guint8 *
-jpeg_file (const guint8 *rgb, gint w, gint h, gint quality, gint chroma)
-{
-  guint8 *out = g_new (guint8, (gsize) w * h * 3);
-
-  if (! fx_jpeg_round_trip (rgb, w, h, quality, chroma, out))
-    g_error ("libjpeg failed");
-  return out;
-}
 
 /* the reference: the whole image on its canvas (edge pixels copied into
  * the partial blocks left and above the grid), one round trip, the
@@ -242,39 +199,6 @@ block_means (const gfloat *e, gint w, gint h, const GeglRectangle *r,
           v[(*n)++] = mean_in (e, w, h, &b, NULL, -1);
       }
   return v;
-}
-
-/* a region taken from the scene src, placed into the JPEG image at r */
-static void
-paste (guint8 *dst, const guint8 *src, gint w, const GeglRectangle *r)
-{
-  gint y;
-
-  for (y = r->y; y < r->y + r->height; y++)
-    memcpy (dst + ((gsize) y * w + r->x) * 3, src + ((gsize) y * w + r->x) * 3,
-            (gsize) r->width * 3);
-}
-
-/* src saved as a JPEG with its blocks shifted by (dx, dy): a copy made
- * from a crop, or pasted at another position */
-static guint8 *
-jpeg_shifted (const guint8 *src, gint w, gint h, gint dx, gint dy, gint q)
-{
-  gint    cw = w + dx, ch = h + dy, x, y;
-  guint8 *c = g_new (guint8, (gsize) cw * ch * 3), *j, *out;
-
-  for (y = 0; y < ch; y++)
-    for (x = 0; x < cw; x++)
-      memcpy (c + ((gsize) y * cw + x) * 3,
-              src + ((gsize) MAX (y - dy, 0) * w + MAX (x - dx, 0)) * 3, 3);
-  j   = jpeg_file (c, cw, ch, q, FX_CHROMA_420);
-  out = g_new (guint8, (gsize) w * h * 3);
-  for (y = 0; y < h; y++)
-    memcpy (out + (gsize) y * w * 3, j + ((gsize) (y + dy) * cw + dx) * 3,
-            (gsize) w * 3);
-  g_free (c);
-  g_free (j);
-  return out;
 }
 
 /* the numbers of a forensic case: the scene saved as a JPEG at quality

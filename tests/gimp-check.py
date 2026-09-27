@@ -119,6 +119,8 @@ def add_filter(layer, op, props):
 ENUMS = {
     'forensics:error-level': {'chroma': ['4:2:0', '4:2:2', '4:4:4'],
                               'mode': ['color', 'luminance', 'maximum']},
+    'forensics:jpeg-ghost': {'chroma': ['4:2:0', '4:2:2', '4:4:4'],
+                             'mode': ['normalized', 'difference', 'minimum']},
 }
 
 
@@ -143,6 +145,11 @@ cases = [
      {'quality': 75, 'scale': 12.5, 'chroma': '4:4:4', 'grid-x': 4, 'grid-y': 11,
       'mode': 'luminance'}, 1e-6),
     ('ela_float_auto_levels', 'forensics:error-level', F32, {'auto-levels': True}, 1e-6),
+    ('ghost_float_defaults', 'forensics:jpeg-ghost', F32, {}, 1e-6),
+    ('ghost_8_bit', 'forensics:jpeg-ghost', U8, {}, 0.5 / 255 + 1e-6),
+    ('ghost_float_options', 'forensics:jpeg-ghost', F32,
+     {'quality': 60, 'sweep-min': 40, 'sweep-max': 80, 'sweep-step': 10,
+      'block-size': 8, 'mode': 'minimum', 'colormap': True, 'grid-x': 3}, 1e-6),
 ]
 cli = {}
 

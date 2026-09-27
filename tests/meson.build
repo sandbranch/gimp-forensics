@@ -4,6 +4,7 @@ check_args = ['-DGEGL_PLUGINSDIR="@0@"'.format(
 
 checks = {
   'error-level': 'check-error-level.c',
+  'jpeg-ghost': 'check-jpeg-ghost.c',
 }
 
 foreach op, source : checks
