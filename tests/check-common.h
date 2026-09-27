@@ -30,7 +30,7 @@ static gint     n_messages = 0;
 static gchar   *mod_dir    = NULL;
 static GSList  *mod_links  = NULL;
 
-static void
+static inline void
 log_handler (const gchar    *domain,
              GLogLevelFlags  level,
              const gchar    *message,
@@ -42,10 +42,10 @@ log_handler (const gchar    *domain,
   g_log_default_handler (domain, level, message, NULL);
 }
 
-static void report (const gchar *name, gboolean ok, const gchar *format, ...)
+static inline void report (const gchar *name, gboolean ok, const gchar *format, ...)
   G_GNUC_PRINTF (3, 4);
 
-static void
+static inline void
 report (const gchar *name,
         gboolean     ok,
         const gchar *format,
@@ -75,7 +75,7 @@ report (const gchar *name,
  * modules given as arguments into a folder of their own (GEGL loads every
  * file in a module folder) and starts GEGL with only them and GEGL's own
  * operations. Returns FALSE (after a message) if an operation is missing */
-static gboolean
+static inline gboolean
 check_start (gint    *argc,
              gchar ***argv,
              ...)
@@ -103,6 +103,8 @@ check_start (gint    *argc,
       g_free (base);
       g_free (target);
     }
+  /* no swap file: the tests stay in memory and leave nothing behind */
+  g_setenv ("GEGL_SWAP", "RAM", TRUE);
   path = g_strconcat (mod_dir, G_SEARCHPATH_SEPARATOR_S, GEGL_PLUGINSDIR, NULL);
   g_setenv ("GEGL_PATH", path, TRUE);
   g_free (path);
@@ -122,14 +124,12 @@ check_start (gint    *argc,
   return TRUE;
 }
 
-static gint
-check_end (void)
+/* after gegl_exit (): removes the links to the modules */
+static inline void
+check_cleanup (void)
 {
   GSList *l;
 
-  report ("no_unexpected_warnings_or_criticals", n_messages == 0, "%d",
-          n_messages);
-  gegl_exit ();
   /* LeakSanitizer needs the modules to name functions after main () */
   if (! g_getenv ("FORENSICS_CHECK_KEEP_MODULES"))
     {
@@ -139,6 +139,15 @@ check_end (void)
     }
   g_slist_free_full (mod_links, g_free);
   g_free (mod_dir);
+}
+
+static inline gint
+check_end (void)
+{
+  report ("no_unexpected_warnings_or_criticals", n_messages == 0, "%d",
+          n_messages);
+  gegl_exit ();
+  check_cleanup ();
   printf ("\n%d passed, %d failed\n", n_passed, n_failed);
   return n_failed ? 1 : 0;
 }
@@ -168,7 +177,7 @@ rng_gauss (Rng *r)
 }
 
 /* smooth value noise: a lattice of random values, interpolated */
-static gdouble
+static inline gdouble
 value_noise (guint32 seed, gdouble x, gdouble y)
 {
   gint    ix = (gint) floor (x), iy = (gint) floor (y);
@@ -192,7 +201,7 @@ value_noise (guint32 seed, gdouble x, gdouble y)
 /* a photo-like scene, w x h R'G'B'A float: a sky gradient, hills,
  * textured ground, a few objects with edges, and grain (sigma levels of
  * 8 bit). Alpha 1. */
-static gfloat *
+static inline gfloat *
 make_scene (gint w, gint h, guint32 seed, gdouble grain)
 {
   gfloat *p = g_new (gfloat, (gsize) w * h * 4);
@@ -240,7 +249,7 @@ make_scene (gint w, gint h, guint32 seed, gdouble grain)
   return p;
 }
 
-static GeglBuffer *
+static inline GeglBuffer *
 buffer_from (const gfloat *pixels, gint w, gint h, const gchar *format)
 {
   GeglRectangle r   = { 0, 0, w, h };
@@ -252,7 +261,7 @@ buffer_from (const gfloat *pixels, gint w, gint h, const gchar *format)
 
 /* runs op with the properties (name, value, ..., NULL; as gegl_node_set)
  * on the buffer; returns the rect of the output as R'G'B'A float */
-static gfloat *
+static inline gfloat *
 run_op_rect (GeglBuffer          *in,
              const GeglRectangle *rect,
              const gchar         *op,
@@ -274,7 +283,7 @@ run_op_rect (GeglBuffer          *in,
   return out;
 }
 
-static gfloat *
+static inline gfloat *
 run_op (GeglBuffer  *in,
         const gchar *op,
         const gchar *first,
@@ -290,7 +299,7 @@ run_op (GeglBuffer  *in,
   return out;
 }
 
-static gfloat *
+static inline gfloat *
 run_op_on (GeglBuffer          *in,
            const GeglRectangle *rect,
            const gchar         *op,
@@ -309,7 +318,7 @@ run_op_on (GeglBuffer          *in,
 /* the mean of channel c (0 to 2, or -1 for the mean of R, G, B) over a
  * rectangle of a w-wide R'G'B'A float image, optionally leaving out
  * another rectangle */
-static gdouble
+static inline gdouble
 mean_in (const gfloat        *p,
          gint                 w,
          gint                 h,
@@ -335,7 +344,7 @@ mean_in (const gfloat        *p,
   return n ? sum / n : 0.0;
 }
 
-static gdouble
+static inline gdouble
 max_abs_diff (const gfloat *a, const gfloat *b, gsize n)
 {
   gdouble d = 0;
@@ -351,7 +360,7 @@ max_abs_diff (const gfloat *a, const gfloat *b, gsize n)
   return d;
 }
 
-static gint
+static inline gint
 cmp_double (gconstpointer a, gconstpointer b)
 {
   gdouble x = *(const gdouble *) a, y = *(const gdouble *) b;
@@ -360,7 +369,7 @@ cmp_double (gconstpointer a, gconstpointer b)
 }
 
 /* the q-quantile (0 to 1) of n values (sorts them) */
-static gdouble
+static inline gdouble
 quantile (gdouble *v, gsize n, gdouble q)
 {
   if (! n)
