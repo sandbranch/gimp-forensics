@@ -6,3 +6,4 @@ plug-ins/content-credentials/vendor.new/
 tests/content-credentials/images/
 tests/content-credentials/output/
 __pycache__/
+samples/images/
