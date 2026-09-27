@@ -10,6 +10,14 @@ foreach plugin : ['forensics-workbench']
       install_mode: 'rwxr-xr-x')
   endif
 endforeach
+# JPEG Info: the plug-in, its report module and JPEGsnoop's signatures
+if plugindir != ''
+  install_data('jpeg-info/jpeg-info.py',
+    install_dir: plugindir / 'jpeg-info',
+    install_mode: 'rwxr-xr-x')
+  install_data('jpeg-info/jpeg_report.py', 'jpeg-info/jpegsnoop-signatures.tsv',
+    install_dir: plugindir / 'jpeg-info')
+endif
 foreach sub : ['content-credentials']
   if import('fs').is_file(sub / 'meson.build')
     subdir(sub)

@@ -10,11 +10,13 @@
 #   4. tests/workbench-check.sh: the Forensics Workbench in headless GIMP
 #   5. tests/gui/gui-test.sh: the dialogs on Broadway (skipped with
 #      FORENSICS_NO_GUI=1, or without Chrome, node or ImageMagick)
-#   6. tests/content-credentials/run.sh: the Content Credentials plug-in
+#   6. tests/jpeg-info/run.sh: the JPEG Info plug-in (its report without
+#      GIMP, its decoder against libjpeg, the plug-in in headless GIMP)
+#   7. tests/content-credentials/run.sh: the Content Credentials plug-in
 #      (skipped until plug-ins/content-credentials/fetch-deps.py and
 #      tests/content-credentials/fetch-images.py have downloaded the C2PA
 #      library and the test files, the only steps that need the network)
-#   7. the tests of each plug-in folder that has its own
+#   8. the tests of each plug-in folder that has its own
 #      plug-ins/<name>/tests/run.sh
 #
 # Everything runs isolated from your folders (tests/isolate.sh); each part
@@ -54,7 +56,7 @@ part () {
 }
 
 if command -v shellcheck >/dev/null 2>&1; then
-    part shellcheck shellcheck -s sh -x "$here"/*.sh "$here"/gui/*.sh
+    part shellcheck shellcheck -s sh -x "$here"/*.sh "$here"/gui/*.sh "$here"/jpeg-info/*.sh
 else
     echo "=== shellcheck: SKIP (not installed)"
 fi
@@ -83,6 +85,8 @@ if [ -n "${FORENSICS_NO_GUI:-}" ]; then
 else
     part gui "$here/gui/gui-test.sh"
 fi
+
+part jpeg-info "$here/jpeg-info/run.sh"
 
 if [ -d "$top/plug-ins/content-credentials/vendor" ] && [ -n "$(ls "$here/content-credentials/images" 2>/dev/null)" ]; then
     part content-credentials "$here/content-credentials/run.sh"

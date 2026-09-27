@@ -40,3 +40,10 @@ executable('bench', 'bench.c',
   c_args: check_args,
   install: false,
 )
+
+# the quantised DCT coefficients of a JPEG file as libjpeg reads them: the
+# reference for the decoder of the JPEG Info plug-in (tests/jpeg-info)
+executable('jpeg-coefficients', 'jpeg-coefficients.c',
+  dependencies: [jpeg_dep],
+  install: false,
+)
