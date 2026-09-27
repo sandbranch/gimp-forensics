@@ -129,6 +129,11 @@ ENUMS = {
     'forensics:luminance-gradient': {'mode': ['normal', 'direction', 'magnitude']},
     'forensics:clone-detect': {'mode': ['overlay', 'mask']},
     'forensics:pca': {'mode': ['projection', 'distance']},
+    'forensics:bit-plane': {'channel': ['luminance', 'red', 'green', 'blue', 'rgb-norm']},
+    'forensics:minmax': {'channel': ['luminance', 'red', 'green', 'blue', 'rgb-norm'],
+                         'mode': ['markers', 'density']},
+    'forensics:median-detect': {'mode': ['map', 'ratio']},
+    'forensics:resampling': {'mode': ['score', 'spectrum', 'pmap']},
 }
 
 
@@ -174,6 +179,24 @@ cases = [
     ('pca_float_defaults', 'forensics:pca', F32, {}, 1e-6),
     ('pca_float_distance', 'forensics:pca', F32,
      {'component': 1, 'mode': 'distance', 'scale': 2.0, 'invert': True}, 1e-6),
+    ('bitplane_float_defaults', 'forensics:bit-plane', F32, {}, 1e-6),
+    ('bitplane_8_bit_green_7', 'forensics:bit-plane', U8, {'channel': 'green', 'bit': 7}, 1e-6),
+    ('minmax_float_defaults', 'forensics:minmax', F32, {}, 1e-6),
+    ('minmax_16_bit_density', 'forensics:minmax', U16,
+     {'mode': 'density', 'window': 9, 'gain': 3.0, 'channel': 'rgb-norm'}, 0.5 / 65535 + 1e-6),
+    ('waveletnoise_float_defaults', 'forensics:wavelet-noise', F32, {}, 1e-6),
+    ('waveletnoise_float_normalized', 'forensics:wavelet-noise', F32,
+     {'block-size': 6, 'normalize': True}, 1e-6),
+    ('echo_float_defaults', 'forensics:echo', F32, {}, 1e-6),
+    ('echo_8_bit_options', 'forensics:echo', U8,
+     {'radius': 3, 'contrast': 50.0, 'normalize': False, 'gain': 0.5, 'grayscale': True},
+     0.5 / 255 + 1e-6),
+    ('median_float_defaults', 'forensics:median-detect', F32, {}, 1e-6),
+    ('median_float_ratio', 'forensics:median-detect', F32,
+     {'mode': 'ratio', 'block-size': 16, 'gain': 2.0}, 1e-6),
+    ('resampling_float_defaults', 'forensics:resampling', F32, {}, 1e-6),
+    ('resampling_float_spectrum', 'forensics:resampling', F32,
+     {'mode': 'spectrum', 'block-size': 32}, 1e-6),
 ]
 cli = {}
 
