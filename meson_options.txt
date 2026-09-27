@@ -1,0 +1,6 @@
+option('moduledir', type: 'string', value: '',
+  description: 'Folder of GEGL operations, default: the system folder of GEGL. '
+    + 'For a user installation use ~/.local/share/gegl-0.4/plug-ins')
+option('plugindir', type: 'string', value: '',
+  description: 'Folder of GIMP plug-ins, default: none (the plug-ins are not '
+    + 'installed). For a user installation use ~/.config/GIMP/3.2/plug-ins')
