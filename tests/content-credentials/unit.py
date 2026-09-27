@@ -160,6 +160,64 @@ if os.path.isfile(path) and os.path.isfile(anchors):
     r = R.analyze(path, user_trust_file=os.path.join(IMAGES, 'no-such.pem'))
     check('a missing trust anchor file is no error', r['status'] == 'untrusted', r['status'])
 
+# a signer is trusted only through a manifest signing list: a CA that is
+# only on a time stamp authority (TSA) list does not make its signers
+# trusted, and the list named is always the first manifest list, in order,
+# that the signer chains to (c2pa-rs itself tries all lists, of any kind,
+# in an order that changes from one read to the next)
+path = os.path.join(IMAGES, 'generated', 'test-ca-signed.png')
+test_ca = os.path.join(IMAGES, 'generated', 'test-ca', 'ca.pem')
+if os.path.isfile(path) and os.path.isfile(test_ca):
+    real_lists = R.trust_lists
+    with open(test_ca) as f:
+        test_pem = f.read()
+
+    def extra(name, uri, kind):
+        return {'name': name, 'uri': uri, 'kind': kind, 'file': test_ca, 'pem': test_pem,
+                'certs': 1}
+
+    def with_lists(before=(), after=()):
+        R.trust_lists = lambda user_file=None: (list(before) + real_lists(user_file) +
+                                                list(after))
+
+    try:
+        tsa = extra('test TSA list', 'test-tsa-list', 'tsa')
+        with_lists(after=[tsa])
+        runs = [R.analyze(path) for _ in range(8)]
+        check('a CA only on a TSA list: the signer is UNKNOWN SIGNER, not trusted',
+              all(r['status'] == 'untrusted' and not r.get('trusted_by') and
+                  [p['code'] for p in r['problems']] == ['signingCredential.untrusted']
+                  for r in runs), str([(r['status'], r.get('trusted_by')) for r in runs]))
+        runs = [R.analyze(path, user_trust_file=test_ca) for _ in range(8)]
+        check('the same CA in your own anchors too: trusted, by your own anchors every time',
+              all(r['status'] == 'trusted' and r['trusted_by'] == 'your own trust anchors'
+                  for r in runs), str([(r['status'], r.get('trusted_by')) for r in runs]))
+        # on two manifest lists and the TSA list (as Google's root is on the
+        # C2PA Trust List and the TSA list): the first manifest list, always
+        with_lists(before=[extra('test manifest list', 'test-manifest-list', 'manifest')],
+                   after=[tsa])
+        runs = [R.analyze(path, user_trust_file=test_ca) for _ in range(8)]
+        check('a CA on two manifest lists and the TSA list: the first list named every time',
+              all(r['status'] == 'trusted' and r['trusted_by'] == 'test manifest list'
+                  for r in runs), str([(r['status'], r.get('trusted_by')) for r in runs]))
+        # the time stamp results come from the read with the TSA list
+        with_lists(after=[tsa])
+        c2pa = R.load_c2pa()
+        first, _ = R.read_store(c2pa, path, R.trust_lists(test_ca))
+        store, name = R.signer_trust(c2pa, path, R.trust_lists(test_ca), first)
+        check('signer_trust: trusted by your own anchors, from a read without the TSA list',
+              name == 'your own trust anchors' and R.trusted_uri(store) == 'user-trust-anchors',
+              '%s %s' % (name, R.trusted_uri(store)))
+    finally:
+        R.trust_lists = real_lists
+else:
+    result('TSA list trust tests', ['missing: run make-fixtures.py'])
+
+s = R.settings(R.trust_lists(), timestamp_trust=False)
+check('settings: time stamp trust can be left to the first read',
+      s['verify']['verify_timestamp_trust'] is False and s['verify']['verify_trust'] is True,
+      json.dumps(s['verify']))
+
 # no file
 r = R.analyze(None)
 check('no file: status nofile', r['status'] == 'nofile' and r['headline'], r['status'])

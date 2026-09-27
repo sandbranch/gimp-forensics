@@ -15,6 +15,10 @@
 #                        signing (a valid PNG: the CRC is recomputed)
 #   xmp-ai.jpg, .png     no C2PA; only XMP with the IPTC digital source type
 #                        trainedAlgorithmicMedia (as some AI services write)
+#   test-ca-signed.png   signed by a certificate of a test CA made here with
+#                        openssl (new keys each run), in test-ca/: ca.pem is
+#                        the CA, for the trust tests of unit.py (as a time
+#                        stamp authority list, as your own anchors)
 #
 # Signing is offline (no time stamp authority), so "signed at" is empty.
 #
@@ -22,6 +26,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import os
 import struct
+import subprocess
 import sys
 import zlib
 
@@ -51,12 +56,67 @@ XMP_AI = ('<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF '
           'xmp:CreatorTool="Example Image Generator 1.0"/></rdf:RDF></x:xmpmeta>')
 
 
-def signer(c2pa):
-    with open(os.path.join(IMAGES, 'c2pa-rs-es256.pem'), 'rb') as f:
+def signer(c2pa, key=os.path.join(IMAGES, 'c2pa-rs-es256.pem'),
+           chain=os.path.join(IMAGES, 'c2pa-rs-es256.pub')):
+    with open(key, 'rb') as f:
         key = f.read()
-    with open(os.path.join(IMAGES, 'c2pa-rs-es256.pub'), 'rb') as f:
+    with open(chain, 'rb') as f:
         cert = f.read()
     return c2pa.Signer.from_info(c2pa.C2paSignerInfo(b'es256', cert, key, None))
+
+
+# the extensions of the test CA and its signing certificate (the C2PA
+# certificate profile: a CA root, an end-entity certificate with digital
+# signature and the emailProtection EKU)
+TEST_CA_CONFIG = '''[req]
+distinguished_name = dn
+[dn]
+[test_ca]
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
+[test_signer]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = emailProtection
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
+'''
+
+
+def make_test_ca(folder):
+    """A test CA (ca.pem) and a certificate it issued (signer.pem, its
+    key signer.key, the chain signer-chain.pem), made with openssl in
+    folder; (key, chain) paths."""
+    os.makedirs(folder, exist_ok=True)
+
+    def at(name):
+        return os.path.join(folder, name)
+
+    with open(at('openssl.cnf'), 'w') as f:
+        f.write(TEST_CA_CONFIG)
+
+    def openssl(*args):
+        subprocess.run(('openssl',) + args, check=True, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.PIPE)
+
+    subj = '/O=gimp-forensics tests/CN='
+    openssl('ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', at('ca.key'))
+    openssl('req', '-new', '-x509', '-key', at('ca.key'), '-sha256', '-days', '3650',
+            '-subj', subj + 'gimp-forensics test CA', '-config', at('openssl.cnf'),
+            '-extensions', 'test_ca', '-out', at('ca.pem'))
+    openssl('ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', at('signer.ec'))
+    openssl('pkcs8', '-topk8', '-nocrypt', '-in', at('signer.ec'), '-out', at('signer.key'))
+    openssl('req', '-new', '-key', at('signer.key'), '-subj', subj + 'gimp-forensics test signer',
+            '-config', at('openssl.cnf'), '-out', at('signer.csr'))
+    openssl('x509', '-req', '-in', at('signer.csr'), '-CA', at('ca.pem'), '-CAkey', at('ca.key'),
+            '-set_serial', '0x7e57', '-days', '3650', '-sha256', '-extfile', at('openssl.cnf'),
+            '-extensions', 'test_signer', '-out', at('signer.pem'))
+    with open(at('signer-chain.pem'), 'w') as out:
+        for name in ('signer.pem', 'ca.pem'):
+            with open(at(name)) as f:
+                out.write(f.read())
+    return at('signer.key'), at('signer-chain.pem')
 
 
 def context(c2pa):
@@ -65,7 +125,7 @@ def context(c2pa):
     return c2pa.Context.from_dict(s)
 
 
-def sign(c2pa, manifest, src, dst, ingredients=()):
+def sign(c2pa, manifest, src, dst, ingredients=(), by=None):
     b = c2pa.Builder(manifest, context=context(c2pa))
     for spec, path, mime in ingredients:
         with open(path, 'rb') as f:
@@ -76,7 +136,7 @@ def sign(c2pa, manifest, src, dst, ingredients=()):
     # every extension)
     mime = MIME[os.path.splitext(dst)[1][1:]]
     with open(src, 'rb') as source, open(dst, 'w+b') as dest:
-        b.sign(signer(c2pa), mime, source, dest)
+        b.sign(by or signer(c2pa), mime, source, dest)
 
 
 def generated(title):
@@ -199,6 +259,17 @@ def main():
     dst = os.path.join(OUT, 'xmp-ai.png')
     xmp_png(os.path.join(IMAGES, 'c2pa-rs-sample1.png'), dst)
     made.append(dst)
+    try:
+        key, chain = make_test_ca(os.path.join(OUT, 'test-ca'))
+    except (OSError, subprocess.CalledProcessError) as e:
+        sys.exit('make-fixtures.py: the test CA needs openssl: %s %s' % (
+            e, getattr(e, 'stderr', b'').decode(errors='replace') if getattr(e, 'stderr', None)
+            else ''))
+    dst = os.path.join(OUT, 'test-ca-signed.png')
+    sign(c2pa, generated('test-ca-signed.png'), os.path.join(IMAGES, 'c2pa-rs-sample1.png'),
+         dst, by=signer(c2pa, key, chain))
+    made.append(dst)
+    made.append(os.path.join(OUT, 'test-ca', 'ca.pem'))
     for m in made:
         print('made', os.path.relpath(m, HERE))
 

@@ -202,7 +202,8 @@ def tree_rows(report):
     if lib.get('available'):
         rows.append((0, 'Checked with', '%s, offline' % lib.get('version')))
         for t in report['trust_lists']:
-            rows.append((1, t['name'], '%d certificates' % t['certs']))
+            rows.append((1, t['name'], '%d certificates%s' % (
+                t['certs'], c2pa_report.TRUST_KIND_NOTE.get(t.get('kind'), ''))))
     return rows
 
 

@@ -55,6 +55,8 @@ EXPECTED = {
     'c2pa-rs-test.tiff': dict(status='none', container=None),
     GEN + 'ai-generated.png': dict(status='untrusted', container='PNG caBX', manifests=1,
                                    ai=[('generated', False)]),
+    GEN + 'test-ca-signed.png': dict(status='untrusted', container='PNG caBX', manifests=1,
+                                     codes=['signingCredential.untrusted']),
     GEN + 'ai-generated.webp': dict(status='untrusted', container='WebP C2PA',
                                     ai=[('generated', False)]),
     GEN + 'ai-generated.avif': dict(status='untrusted', container='ISO BMFF uuid',

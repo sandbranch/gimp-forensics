@@ -144,6 +144,58 @@ dangles; copying the store makes it tampered), a link to the plug-in, and
 the question of whether the maintainers would take a read-only view in
 core, and whether c2pa-rs as a dependency is thinkable.
 
+## c2pa-rs: trust list kinds are not kept apart (draft issue, not filed)
+
+Worth reporting: it is a trust decision, not a cosmetic one, and it is
+still in c2pa-rs `main` (commit 59b96fa, 2026-09-26: the loop in
+`certificate_trust/openssl.rs` and the `HashSet` in `settings/mod.rs` are
+unchanged). Related, not the same: #1776 ("Support TSA trust list",
+closed 2026-03-16; it added `trust_kind`) and #2039 (separate signer and
+TSA lists in c2pa-node's config, open). The plug-in works around it (see
+"Which list does what" in [content-credentials.md](content-credentials.md)).
+Draft, for contentauth/c2pa-rs:
+
+> **Signer trust accepts TSA (and CAWG) anchors; the trust list reported
+> changes from run to run**
+>
+> c2pa-rs 0.91.0 (c2pa-python 0.37.12). `CertificateTrustPolicy::
+> check_certificate_trust` (`sdk/src/crypto/cose/certificate_trust/
+> openssl.rs`, and the same loop in `rust_native.rs`) iterates over all
+> `anchor_sets()` and returns the first set the certificate chains to,
+> whatever its `trust_anchor_type`. It is called for the claim signer
+> (`cose/verifier.rs`, `verify_trust`) and for the time stamp authority
+> (`time_stamp/verify.rs`) with the same policy. Since #1776 a TSA list
+> can be given as `trust.anchors` with `trust_kind: "tsa"`, so:
+>
+> 1. A claim signer whose certificate chains only to a root in a
+>    `trust_kind: "tsa"` set gets `signingCredential.trusted` and the
+>    manifest `validation_state` `Trusted`. The C2PA specification keeps
+>    the TSA trust list separate from the signer lists (2.3, "Time-stamp
+>    authorities"). The reverse holds too: a TSA chaining only to a
+>    manifest (signer) root gets `timeStamp.trusted`.
+> 2. `Settings::merge_legacy_trust_anchors` (`sdk/src/settings/mod.rs`)
+>    collects `trust.anchors` in a `HashSet` and turns it back into a
+>    `Vec`, so the order of the sets, and with it the `trust_list_uri`
+>    reported in `signingCredential.trusted` and `timeStamp.trusted`,
+>    differs between reads when a root is in two sets. Seen on a Google
+>    Gemini PNG whose root is on both the C2PA Trust List and the C2PA
+>    TSA Trust List: "found in [c2pa-trust-list]" in some reads, "found in
+>    [c2pa-tsa-trust-list]" in others, in one process. The per-set
+>    `trust_config` (EKU override) applied after a match
+>    (`verify_signature`, `get_anchor_set`) then also depends on the order.
+>
+> To reproduce: make a CA and an end-entity certificate with the
+> emailProtection EKU, sign any image with it, then read it with
+> `trust.anchors = [{trust_anchors: <CA>, trust_uri: "test-tsa",
+> trust_kind: "tsa"}]` and `verify.verify_trust: true`: the result is
+> `signingCredential.trusted`, "found in [test-tsa] trust anchors".
+>
+> Suggested: filter the anchor sets by kind in `check_certificate_trust`
+> (a kind parameter: Manifest, plus EndEntity, for signers; TSA for time
+> stamps; CAWG for identity), and keep `trust.anchors` in the given order
+> (dedup without a `HashSet`, for example by keeping the first of equal
+> entries), so that the list reported is deterministic.
+
 ## GIMP bugs found (not reported yet)
 
 - GIMP 3.2.6's HEIF loader (`file-heif`) crashes on `sample1.heic` from

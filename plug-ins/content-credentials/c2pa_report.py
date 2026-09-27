@@ -284,6 +284,11 @@ def _count_certs(pem):
     return pem.count('-----BEGIN CERTIFICATE-----')
 
 
+# a list of time stamp authorities decides only whether a time stamp is
+# trusted, never a signer
+TRUST_KIND_NOTE = {'tsa': ', for time stamps only'}
+
+
 def trust_lists(user_file=None):
     """The trust lists used: the official C2PA Trust List, the frozen
     Interim Trust List, the C2PA TSA list, and the user's own PEM file if
@@ -317,8 +322,10 @@ def trust_lists(user_file=None):
     return lists
 
 
-def settings(lists):
-    """c2pa-rs settings: validate, offline, with the given trust lists."""
+def settings(lists, timestamp_trust=True):
+    """c2pa-rs settings: validate, offline, with the given trust lists.
+    timestamp_trust False accepts a time stamp without checking its
+    authority against a trust list (see signer_trust())."""
     anchors = []
     for t in lists:
         a = {'trust_anchors': t['pem'], 'trust_uri': t['uri'], 'trust_kind': t['kind']}
@@ -332,7 +339,7 @@ def settings(lists):
         'verify': {
             'verify_after_reading': True,
             'verify_trust': True,
-            'verify_timestamp_trust': True,
+            'verify_timestamp_trust': bool(timestamp_trust),
             'ocsp_fetch': False,
             'remote_manifest_fetch': False,
         },
@@ -342,6 +349,124 @@ def settings(lists):
     if anchors:
         s['trust'] = {'anchors': anchors}
     return s
+
+
+def read_store(c2pa, path, lists, timestamp_trust=True):
+    """(manifest store as a dict or None, remote URL or None) of the file,
+    validated by c2pa-rs with these trust lists. Raises what c2pa raises."""
+    ctx = c2pa.Context.from_dict(settings(lists, timestamp_trust))
+    reader = c2pa.Reader.try_create(path, context=ctx)
+    if reader is None:
+        return None, None
+    remote = None
+    try:
+        store = json.loads(reader.json())
+        try:
+            if not reader.is_embedded():
+                remote = reader.get_remote_url()
+        except Exception:
+            pass
+    finally:
+        reader.close()
+    return store, remote
+
+
+# Why signer_trust() exists (c2pa-rs 0.91.0, checked in its source):
+# CertificateTrustPolicy::check_certificate_trust (sdk/src/crypto/cose/
+# certificate_trust/openssl.rs and rust_native.rs) tries every anchor set
+# of trust.anchors, whatever its trust_kind, and returns the first one the
+# certificate chains to. The signer's certificate and the time stamp
+# authority's are both checked that way, against the same sets. And the
+# settings put trust.anchors through a HashSet (merge_legacy_trust_anchors
+# in sdk/src/settings/mod.rs), so the order of the sets changes from one
+# read to the next. With the C2PA TSA Trust List among the anchors, a
+# signer that chains only to a time stamp authority's root is reported as
+# trusted, and a root on two lists (Google's is on the C2PA Trust List and
+# the TSA list) is reported as found in either, at random.
+
+def _results(store):
+    """(key, validation results) of the active manifest ('' as key) and of
+    each ingredient checked now (its ingredient assertion URI)."""
+    vr = (store or {}).get('validation_results') or {}
+    out = [('', vr.get('activeManifest') or {})]
+    for d in vr.get('ingredientDeltas') or []:
+        out.append((d.get('ingredientAssertionURI'), d.get('validationDeltas') or {}))
+    return out
+
+
+def _has_code(results, code):
+    return any(e.get('code') == code for k in ('success', 'informational', 'failure')
+               for e in results.get(k) or [])
+
+
+def trusted_uri(store):
+    """The trust list URI c2pa-rs names for the active manifest's signer
+    ('' for a certificate on an allowed list of its own), or None when the
+    signer is not trusted."""
+    vr = ((store or {}).get('validation_results') or {}).get('activeManifest') or {}
+    for e in vr.get('success') or []:
+        if e.get('code') == 'signingCredential.trusted':
+            m = re.search(r'\[([^\]]*)\]', e.get('explanation', ''))
+            return m.group(1) if m else ''
+    return None
+
+
+def _keep_time_stamps(store, first):
+    """The time stamp results (timeStamp.trusted, timeStamp.untrusted) of
+    store replaced by those of first, manifest by manifest."""
+    theirs = dict(_results(first))
+    for key, results in _results(store):
+        old = theirs.get(key) or {}
+        for k in ('success', 'informational', 'failure'):
+            kept = [e for e in results.get(k) or []
+                    if e.get('code') not in ('timeStamp.trusted', 'timeStamp.untrusted')]
+            kept += [e for e in old.get(k) or []
+                     if e.get('code') in ('timeStamp.trusted', 'timeStamp.untrusted')]
+            if kept or k in results:
+                results[k] = kept
+
+
+def signer_trust(c2pa, path, lists, first):
+    """(store, name of the trust list) with the signers' trust decided
+    against the manifest signing lists only (not the TSA list), and the
+    trust list named the same way every time. first is the store read with
+    all the lists; its time stamp results are kept. The name is that of the
+    first list, in the order of lists, that the active manifest's signer
+    chains to, or None when it is not trusted.
+
+    A second read is made with only the manifest lists. If every time stamp
+    of the first read was trusted, that read skips checking time stamp
+    authorities (they were checked, against the TSA list, in the first), so
+    the signer's certificate is checked at the time stamp's time as in the
+    first read; otherwise it checks them against the manifest lists, which
+    can only trust fewer of them, never more."""
+    signing = [t for t in lists if t['kind'] == 'manifest']
+    trusted_anywhere = any(_has_code(r, 'signingCredential.trusted') for _, r in _results(first))
+    if not trusted_anywhere:
+        return first, None
+    ts = any(_has_code(r, 'timeStamp.untrusted') for _, r in _results(first))
+    store = first
+    if len(signing) < len(lists):
+        store, _ = read_store(c2pa, path, signing, timestamp_trust=ts)
+        if store is None:
+            return first, None
+        _keep_time_stamps(store, first)
+    uri = trusted_uri(store)
+    if uri is None:
+        return store, None
+    # the list c2pa-rs named (an allowed list of its own is part of a list)
+    at = None
+    for i, t in enumerate(signing):
+        if t['uri'] == uri or (uri == '' and 'allowed' in t):
+            at = i
+            break
+    # c2pa-rs names any list the signer chains to: the first one in order
+    # that it chains to is named instead, checked one list at a time
+    for t in signing[:at]:
+        alone, _ = read_store(c2pa, path, [t], timestamp_trust=ts)
+        if trusted_uri(alone) is not None:
+            return store, t['name']
+    return store, signing[at]['name'] if at is not None else ''
 
 
 # ------------------------------------------------------------ where in the file
@@ -790,17 +915,11 @@ def analyze(path, user_trust_file=None, gimp_xmp=None, gimp_xmp_source=None):
     report['library'] = {'available': True, 'version': library_version()}
 
     store = None
+    trusted_by = None
     try:
-        ctx = c2pa.Context.from_dict(settings(lists))
-        reader = c2pa.Reader.try_create(path, context=ctx)
-        if reader is not None:
-            store = json.loads(reader.json())
-            try:
-                if not reader.is_embedded():
-                    report['remote_url'] = reader.get_remote_url()
-            except Exception:
-                pass
-            reader.close()
+        store, report['remote_url'] = read_store(c2pa, path, lists)
+        if store is not None:
+            store, trusted_by = signer_trust(c2pa, path, lists, store)
     except Exception as e:
         name = type(e).__name__
         text = str(e)
@@ -842,7 +961,6 @@ def analyze(path, user_trust_file=None, gimp_xmp=None, gimp_xmp_source=None):
     if not vr:
         failures = _codes([s for s in store.get('validation_status') or []
                            if s.get('url', '').find(str(active_label)) >= 0])
-    successes = _codes(vr.get('success'))
     report['validation_state'] = state
     report['status'] = _classify(state, failures)
     report['problems'] = failures
@@ -859,12 +977,8 @@ def analyze(path, user_trust_file=None, gimp_xmp=None, gimp_xmp_source=None):
                     bad.append(name)
             if ing['manifest_missing'] and name not in bad:
                 bad.append(name)
-    trusted_by = [s['explanation'] for s in successes if s['code'] == 'signingCredential.trusted']
     if report['status'] == 'trusted':
-        which = ''
-        for t in lists:
-            if trusted_by and '[%s]' % t['uri'] in trusted_by[0]:
-                which = t['name']
+        which = trusted_by or ''
         report['trusted_by'] = which
         report['explanation'].append('The signature is valid and the signer\'s certificate '
                                      'chains to %s.' % (which or 'a trust list'))
@@ -1050,8 +1164,8 @@ def to_text(report):
     if report.get('library') and report['library'].get('available'):
         lines.append('Checked with %s, offline, against: %s' % (
             report['library']['version'],
-            ', '.join('%s (%d certificates)' % (t['name'], t['certs'])
-                      for t in report['trust_lists']) or 'no trust list'))
+            ', '.join('%s (%d certificates%s)' % (t['name'], t['certs'], TRUST_KIND_NOTE.get(
+                t['kind'], '')) for t in report['trust_lists']) or 'no trust list'))
     lines.extend(report['honest'])
     return '\n'.join(lines) + '\n'
 
