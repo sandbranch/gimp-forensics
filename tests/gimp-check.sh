@@ -46,7 +46,7 @@ run () {
 }
 
 status=0
-run gimp-console-3.2 --no-interface --no-data --no-fonts \
+run gimp-console-3.2 --new-instance --no-interface --no-data --no-fonts \
   --batch-interpreter python-fu-eval \
   -b "exec(open('$here/gimp-check.py').read())" --quit 2>&1 |
   grep -E "^(PASS|FAIL)|failed$|Error|Traceback|^  File" || true
