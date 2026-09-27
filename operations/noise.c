@@ -119,6 +119,26 @@ get_bounding_box (GeglOperation *operation)
   return r;
 }
 
+/* auto levels need the whole image: an infinite one (gegl:color) is
+ * passed through instead */
+static gboolean
+whole_image (GeglOperation *operation)
+{
+  GeglProperties *o    = GEGL_PROPERTIES (operation);
+  GeglRectangle   bbox = get_bounding_box (operation);
+
+  return o->auto_levels && ! gegl_rectangle_is_infinite_plane (&bbox);
+}
+
+static gboolean
+passes_through (GeglOperation *operation)
+{
+  GeglProperties *o    = GEGL_PROPERTIES (operation);
+  GeglRectangle   bbox = get_bounding_box (operation);
+
+  return o->auto_levels && gegl_rectangle_is_infinite_plane (&bbox);
+}
+
 /* how far the denoising reaches */
 static gint
 denoise_reach (GeglProperties *o)
@@ -162,8 +182,10 @@ get_required_for_output (GeglOperation       *operation,
   gint            before, after, reach = denoise_reach (o);
 
   (void) input_pad;
+  if (passes_through (operation))
+    return *roi;
   average_extent (o, &before, &after);
-  r = o->auto_levels ? bbox : *roi;
+  r = whole_image (operation) ? bbox : *roi;
   r = grow (&r, before + reach, after + reach);
   gegl_rectangle_intersect (&r, &r, &bbox);
   return r;
@@ -180,8 +202,12 @@ get_invalidated_by_change (GeglOperation       *operation,
   gint            before, after, reach = denoise_reach (o);
 
   (void) input_pad;
-  if (o->auto_levels)
+  if (gegl_rectangle_is_infinite_plane (roi))
+    return *roi;
+  if (whole_image (operation))
     return bbox;
+  if (passes_through (operation))
+    return *roi;
   average_extent (o, &before, &after);
   /* (the window of a pixel reaches before to the left and after to the
    * right: a change reaches after to the left and before to the right) */
@@ -194,9 +220,7 @@ static GeglRectangle
 get_cached_region (GeglOperation       *operation,
                    const GeglRectangle *roi)
 {
-  GeglProperties *o = GEGL_PROPERTIES (operation);
-
-  return o->auto_levels ? get_bounding_box (operation) : *roi;
+  return whole_image (operation) ? get_bounding_box (operation) : *roi;
 }
 
 static inline gfloat
@@ -525,6 +549,11 @@ process (GeglOperation       *operation,
   Job             job;
 
   (void) level;
+  if (passes_through (operation))
+    {
+      gegl_buffer_copy (input, result, GEGL_ABYSS_NONE, output, result);
+      return TRUE;
+    }
   memset (&job, 0, sizeof job);
   job.input  = input;
   job.output = output;

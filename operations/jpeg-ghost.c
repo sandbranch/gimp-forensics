@@ -222,6 +222,8 @@ get_invalidated_by_change (GeglOperation       *operation,
   gint            before, after;
 
   (void) input_pad;
+  if (gegl_rectangle_is_infinite_plane (roi))
+    return *roi;
   canvas_for (operation, &c);
   if (! gegl_rectangle_intersect (&r, roi, &c.bbox))
     return r;
@@ -321,6 +323,12 @@ do_piece (Job  *job,
   need.height = job->starts[i + 1] - job->starts[i];
   area  = window_area (job->before, job->after, &job->canvas, &need);
   piece = fx_canvas_piece (&job->canvas, &area);
+  if (! fx_piece_holds (&piece, &area))
+    {
+      /* (cannot happen within an image; defensive) */
+      g_atomic_int_set (&job->failed, 1);
+      return;
+    }
 
   n_need = (gsize) need.width * need.height;
   n_area = (gsize) area.width * area.height;

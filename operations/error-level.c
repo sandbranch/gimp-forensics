@@ -139,6 +139,26 @@ get_bounding_box (GeglOperation *operation)
   return r;
 }
 
+/* auto levels need the whole image: an infinite one (gegl:color) is
+ * passed through instead */
+static gboolean
+whole_image (GeglOperation *operation)
+{
+  GeglProperties *o    = GEGL_PROPERTIES (operation);
+  GeglRectangle   bbox = get_bounding_box (operation);
+
+  return o->auto_levels && ! gegl_rectangle_is_infinite_plane (&bbox);
+}
+
+static gboolean
+passes_through (GeglOperation *operation)
+{
+  GeglProperties *o    = GEGL_PROPERTIES (operation);
+  GeglRectangle   bbox = get_bounding_box (operation);
+
+  return o->auto_levels && gegl_rectangle_is_infinite_plane (&bbox);
+}
+
 static void
 canvas_for (GeglOperation *operation,
             FxCanvas      *c)
@@ -159,9 +179,12 @@ get_required_for_output (GeglOperation       *operation,
   GeglRectangle   need, piece;
 
   (void) input_pad;
+  (void) o;
   canvas_for (operation, &c);
-  if (o->auto_levels)
+  if (whole_image (operation))
     return c.bbox;
+  if (passes_through (operation))
+    return *roi;
   if (! gegl_rectangle_intersect (&need, roi, &c.bbox))
     return need;
   piece = fx_canvas_piece (&c, &need);
@@ -178,9 +201,14 @@ get_invalidated_by_change (GeglOperation       *operation,
   GeglRectangle   r, piece;
 
   (void) input_pad;
+  if (gegl_rectangle_is_infinite_plane (roi))
+    return *roi;
+  (void) o;
   canvas_for (operation, &c);
-  if (o->auto_levels)
+  if (whole_image (operation))
     return c.bbox;
+  if (passes_through (operation))
+    return *roi;
   /* a pixel changes every block of every piece that reads it: its MCU
    * and, with subsampled chroma, the neighbouring ones */
   if (! gegl_rectangle_intersect (&r, roi, &c.bbox))
@@ -198,9 +226,7 @@ static GeglRectangle
 get_cached_region (GeglOperation       *operation,
                    const GeglRectangle *roi)
 {
-  GeglProperties *o = GEGL_PROPERTIES (operation);
-
-  if (o->auto_levels)
+  if (whole_image (operation))
     return get_bounding_box (operation);
   return *roi;
 }
@@ -244,6 +270,12 @@ do_piece (Job  *job,
   need.y      = job->starts[i];
   need.height = job->starts[i + 1] - job->starts[i];
   piece = fx_canvas_piece (&job->canvas, &need);
+  if (! fx_piece_holds (&piece, &need))
+    {
+      /* (cannot happen within an image; defensive) */
+      g_atomic_int_set (&job->failed, 1);
+      return;
+    }
 
   orig = g_new (guint8, (gsize) piece.width * piece.height * 3);
   copy = g_new (guint8, (gsize) piece.width * piece.height * 3);
@@ -358,6 +390,11 @@ process (GeglOperation       *operation,
   gint            n_pieces, n_threads;
 
   (void) level;
+  if (passes_through (operation))
+    {
+      gegl_buffer_copy (input, result, GEGL_ABYSS_NONE, output, result);
+      return TRUE;
+    }
   memset (&job, 0, sizeof job);
   job.operation = operation;
   job.input     = input;

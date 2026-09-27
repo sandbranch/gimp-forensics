@@ -88,18 +88,20 @@ fx_canvas_init (FxCanvas            *c,
   gint pad_y = (FX_PERIOD - (offset_y % FX_PERIOD)) % FX_PERIOD;
 
   c->bbox     = *bbox;
-  c->x0       = bbox->x - pad_x;
-  c->y0       = bbox->y - pad_y;
-  c->w        = bbox->width + pad_x;
-  c->h        = bbox->height + pad_y;
+  /* (an infinite plane, from gegl:color, starts at G_MININT / 2 and is
+   * G_MAXINT wide: the canvas stays within gint, a little short of it) */
+  c->x0       = (gint) MAX ((gint64) bbox->x - pad_x, (gint64) G_MININT);
+  c->y0       = (gint) MAX ((gint64) bbox->y - pad_y, (gint64) G_MININT);
+  c->w        = (gint) MIN ((gint64) bbox->width + pad_x, (gint64) G_MAXINT - 2 * FX_PERIOD);
+  c->h        = (gint) MIN ((gint64) bbox->height + pad_y, (gint64) G_MAXINT - 2 * FX_PERIOD);
   c->mcu_w    = chroma == FX_CHROMA_444 ? 8 : 16;
   c->mcu_h    = chroma == FX_CHROMA_420 ? 16 : 8;
   c->margin_x = chroma == FX_CHROMA_444 ? 0 : c->mcu_w;
   c->margin_y = chroma == FX_CHROMA_420 ? c->mcu_h : 0;
 }
 
-static inline gint
-fx_floor_to (gint v, gint m)
+static inline gint64
+fx_floor_to (gint64 v, gint m)
 {
   return (v >= 0 ? v / m : -((-v + m - 1) / m)) * m;
 }
@@ -111,8 +113,8 @@ fx_canvas_piece (const FxCanvas      *c,
                  const GeglRectangle *need)
 {
   GeglRectangle r;
-  gint x1 = need->x - c->x0, y1 = need->y - c->y0;
-  gint x2 = x1 + need->width, y2 = y1 + need->height;
+  gint64 x1 = (gint64) need->x - c->x0, y1 = (gint64) need->y - c->y0;
+  gint64 x2 = x1 + need->width, y2 = y1 + need->height;
 
   x1 = fx_floor_to (x1, c->mcu_w) - c->margin_x;
   y1 = fx_floor_to (y1, c->mcu_h) - c->margin_y;
@@ -123,11 +125,21 @@ fx_canvas_piece (const FxCanvas      *c,
   x2 = MIN (x2, c->w);
   y2 = MIN (y2, c->h);
 
-  r.x = c->x0 + x1;
-  r.y = c->y0 + y1;
-  r.width  = MAX (x2 - x1, 0);
-  r.height = MAX (y2 - y1, 0);
+  r.x = (gint) (c->x0 + x1);
+  r.y = (gint) (c->y0 + y1);
+  r.width  = (gint) MAX (x2 - x1, 0);
+  r.height = (gint) MAX (y2 - y1, 0);
   return r;
+}
+
+/* whether piece holds need */
+static inline gboolean
+fx_piece_holds (const GeglRectangle *piece,
+                const GeglRectangle *need)
+{
+  return need->x >= piece->x && need->y >= piece->y &&
+         (gint64) need->x + need->width <= (gint64) piece->x + piece->width &&
+         (gint64) need->y + need->height <= (gint64) piece->y + piece->height;
 }
 
 /* the part of the image a piece reads (the piece within the image) */
@@ -338,11 +350,11 @@ fx_split_rows (const FxCanvas      *c,
   (*starts)[n++] = top;
   {
     /* cut on MCU lines of the canvas */
-    gint y = c->y0 + fx_floor_to (top - c->y0, c->mcu_h) + rows;
+    gint64 y = c->y0 + fx_floor_to ((gint64) top - c->y0, c->mcu_h) + rows;
 
     while (y < bottom)
       {
-        (*starts)[n++] = y;
+        (*starts)[n++] = (gint) y;
         y += rows;
       }
   }

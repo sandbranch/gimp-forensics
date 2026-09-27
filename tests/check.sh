@@ -8,7 +8,8 @@
 #
 #   tests/check.sh                 both builds, every operation
 #   tests/check.sh quick           only the usual build
-#   tests/check.sh [quick] noise   only forensics:noise (or another)
+#   tests/check.sh [quick] noise   only forensics:noise (or another; "infinite"
+#                                  is every operation on an infinite input)
 #
 # The builds and checks run isolated from your folders (GIMP_RUN_HOME,
 # tests/output/gimp-home: see gimp-build.sh), so that nothing lands in
@@ -35,7 +36,7 @@ snapshot_take "$out/snapshot-check-before.txt"
 
 quick=
 [ "$1" = quick ] && { quick=1; shift; }
-ops=${*:-error-level jpeg-ghost noise luminance-gradient clone-detect pca}
+ops=${*:-error-level jpeg-ghost noise luminance-gradient clone-detect pca infinite}
 
 gimp_build=${GIMP_BUILD:-$top/../gimp-plugin-devtools/gimp-build.sh}
 if [ "${GIMP_FLATPAK:-1}" = 1 ] && command -v flatpak >/dev/null 2>&1 &&
@@ -66,8 +67,11 @@ run_checks () {
     [ -x "$out/$b/tests/check-$op" ] || continue
     rm -rf "$out/tmp-$b"
     mkdir -p "$out/tmp-$b"
+    # (check-infinite takes every module)
+    mods="tests/output/$b/$op.so"
+    [ "$op" = infinite ] && mods=$(cd "$top" && echo tests/output/"$b"/*.so)
     in_sdk "TMPDIR=tests/output/tmp-$b $env tests/output/$b/tests/check-$op \
-      tests/output/$b/$op.so" >"$out/check-$op$suffix.log" 2>&1 || status=1
+      $mods" >"$out/check-$op$suffix.log" 2>&1 || status=1
     rm -rf "$out/tmp-$b"
     echo "-- $op"
     grep -E '^(FAIL|SKIP)|passed,' "$out/check-$op$suffix.log" || true
