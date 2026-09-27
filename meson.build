@@ -23,6 +23,7 @@ operations = {
   'jpeg-ghost': ['operations/jpeg-ghost.c'],
   'noise': ['operations/noise.c'],
   'luminance-gradient': ['operations/luminance-gradient.c'],
+  'clone-detect': ['operations/clone-detect.c'],
 }
 
 modules = {}
