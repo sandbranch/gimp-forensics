@@ -21,6 +21,7 @@ endif
 operations = {
   'error-level': ['operations/error-level.c'],
   'jpeg-ghost': ['operations/jpeg-ghost.c'],
+  'noise': ['operations/noise.c'],
 }
 
 modules = {}
