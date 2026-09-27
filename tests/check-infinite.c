@@ -8,8 +8,8 @@
  *   check-infinite <module.so ...>
  *
  * gegl:color and other sources have no edges. The operations that need
- * the whole image (clone detection, principal components, auto levels)
- * pass such an input through; the others work on the part asked for.
+ * the whole image (clone detection, principal components, auto levels,
+ * normalizing) pass such an input through; the others work on the part asked for.
  * Either way: no crash, finite values, in a few seconds.
  */
 
@@ -19,15 +19,25 @@ gint
 main (gint    argc,
       gchar **argv)
 {
-  static const struct { const gchar *op, *prop; gboolean passes; } cases[] = {
-    { "forensics:error-level", NULL, FALSE },
-    { "forensics:error-level", "auto-levels", TRUE },
-    { "forensics:jpeg-ghost", NULL, FALSE },
-    { "forensics:noise", NULL, FALSE },
-    { "forensics:noise", "auto-levels", TRUE },
-    { "forensics:luminance-gradient", NULL, FALSE },
-    { "forensics:clone-detect", NULL, TRUE },
-    { "forensics:pca", NULL, TRUE },
+  static const struct { const gchar *op, *prop; gint value; gboolean passes; } cases[] = {
+    { "forensics:error-level", NULL, 0, FALSE },
+    { "forensics:error-level", "auto-levels", TRUE, TRUE },
+    { "forensics:jpeg-ghost", NULL, 0, FALSE },
+    { "forensics:noise", NULL, 0, FALSE },
+    { "forensics:noise", "auto-levels", TRUE, TRUE },
+    { "forensics:luminance-gradient", NULL, 0, FALSE },
+    { "forensics:clone-detect", NULL, 0, TRUE },
+    { "forensics:pca", NULL, 0, TRUE },
+    { "forensics:bit-plane", NULL, 0, FALSE },
+    { "forensics:minmax", NULL, 0, FALSE },
+    { "forensics:minmax", "mode", 1, FALSE },
+    { "forensics:wavelet-noise", NULL, 0, FALSE },
+    { "forensics:wavelet-noise", "normalize", TRUE, TRUE },
+    { "forensics:echo", NULL, 0, TRUE },
+    { "forensics:echo", "normalize", FALSE, FALSE },
+    { "forensics:median-detect", NULL, 0, FALSE },
+    { "forensics:resampling", NULL, 0, FALSE },
+    { "forensics:resampling", "mode", 1, FALSE },
   };
   gint i;
 
@@ -55,7 +65,7 @@ main (gint    argc,
       }
       node = gegl_node_new_child (g, "operation", cases[i].op, NULL);
       if (cases[i].prop)
-        gegl_node_set (node, cases[i].prop, TRUE, NULL);
+        gegl_node_set (node, cases[i].prop, cases[i].value, NULL);
       gegl_node_link (src, node);
       out = g_new0 (gfloat, (gsize) r.width * r.height * 4);
       in  = g_new0 (gfloat, (gsize) r.width * r.height * 4);
@@ -71,8 +81,10 @@ main (gint    argc,
             same = FALSE;
         }
       g_free (in);
-      name = g_strdup_printf ("infinite_input_%s%s%s", cases[i].op + strlen ("forensics:"),
-                              cases[i].prop ? "_" : "", cases[i].prop ? cases[i].prop : "");
+      name = g_strdup_printf ("infinite_input_%s%s%s%s", cases[i].op + strlen ("forensics:"),
+                              cases[i].prop ? "_" : "", cases[i].prop ? cases[i].prop : "",
+                              cases[i].prop && cases[i].value != TRUE ?
+                              (cases[i].value ? "_1" : "_off") : "");
       report (name, finite && same && (g_get_monotonic_time () - t0) < 5000000,
               cases[i].passes ? "passed through" : "worked on the part asked for");
       g_free (name);

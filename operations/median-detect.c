@@ -21,7 +21,9 @@
  * output the first differences of the 8 bit values are 0 much more often
  * than +-1, even where the image has texture. The statistic of a block is
  * the ratio h0 / h1 of the counts of horizontal and vertical differences
- * 0 and +-1 inside it. Unfiltered textured image content gives about 0.5
+ * 0 and +-1 inside it, counted in each of R, G and B (the paper works on
+ * gray images; the gray of a color image filtered channel by channel
+ * mixes three medians and hides the runs). Unfiltered textured image content gives about 0.5
  * (a difference of +-1 counts both signs); a 3 x 3 or 5 x 5 median about
  * 1 (tests/check-median-detect.c). Smooth blocks have many zero
  * differences anyway: blocks whose mean absolute difference is below the
@@ -158,9 +160,9 @@ process (GeglOperation       *operation,
   GeglRectangle   bbox   = fc_bbox (operation);
   gboolean        inf    = gegl_rectangle_is_infinite_plane (&bbox);
   GeglRectangle   roi, blk, read;
-  gfloat         *pix, *plane, *out;
+  gfloat         *pix, *planes[3], *out;
   gint            b      = CLAMP (o->block_size, 8, 256);
-  gint            nbx, nby, bx, by, x, y;
+  gint            nbx, nby, bx, by, x, y, c;
 
   (void) level;
   if (inf)
@@ -176,7 +178,8 @@ process (GeglOperation       *operation,
     }
   else
     pix = fc_read (input, format, &blk, &bbox, &read);
-  plane = fc_plane (pix, &read, &read, &read, FC_LUMA, TRUE, FALSE);
+  for (c = 0; c < 3; c++)
+    planes[c] = fc_plane (pix, &read, &read, &read, FC_RED + c, TRUE, FALSE);
   nbx = (read.width + b - 1) / b;
   nby = (read.height + b - 1) / b;
   out = g_new (gfloat, (gsize) roi.width * roi.height * 4);
@@ -189,30 +192,35 @@ process (GeglOperation       *operation,
         gdouble sum = 0, ratio, texture;
         gfloat  rgb[3];
 
-        for (y = y0; y < y1; y++)
-          for (x = x0; x < x1; x++)
-            {
-              gfloat v = plane[(gsize) y * read.width + x];
+        for (c = 0; c < 3; c++)
+          {
+            const gfloat *plane = planes[c];
 
-              if (x + 1 < x1)
+            for (y = y0; y < y1; y++)
+              for (x = x0; x < x1; x++)
                 {
-                  gfloat d = fabsf (plane[(gsize) y * read.width + x + 1] - v);
+                  gfloat v = plane[(gsize) y * read.width + x];
 
-                  h0 += d == 0;
-                  h1 += d == 1;
-                  sum += d;
-                  n++;
-                }
-              if (y + 1 < y1)
-                {
-                  gfloat d = fabsf (plane[(gsize) (y + 1) * read.width + x] - v);
+                  if (x + 1 < x1)
+                    {
+                      gfloat d = fabsf (plane[(gsize) y * read.width + x + 1] - v);
 
-                  h0 += d == 0;
-                  h1 += d == 1;
-                  sum += d;
-                  n++;
+                      h0 += d == 0;
+                      h1 += d == 1;
+                      sum += d;
+                      n++;
+                    }
+                  if (y + 1 < y1)
+                    {
+                      gfloat d = fabsf (plane[(gsize) (y + 1) * read.width + x] - v);
+
+                      h0 += d == 0;
+                      h1 += d == 1;
+                      sum += d;
+                      n++;
+                    }
                 }
-            }
+          }
         ratio = (h0 + 1.0) / (h1 + 1.0);
         texture = n ? sum / n : 0;
         if (o->mode == FORENSICS_MEDIAN_RATIO)
@@ -245,7 +253,8 @@ process (GeglOperation       *operation,
   fc_copy_alpha (pix, &read, &roi, out);
   gegl_buffer_set (output, &roi, 0, format, out, GEGL_AUTO_ROWSTRIDE);
   g_free (out);
-  g_free (plane);
+  for (c = 0; c < 3; c++)
+    g_free (planes[c]);
   g_free (pix);
   return TRUE;
 }
