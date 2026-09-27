@@ -338,7 +338,11 @@ static void
 run (Job *job,
      gint n_pieces)
 {
-  gegl_parallel_distribute_range (n_pieces, (gdouble) job->roi.width * 64.0,
+  /* a thread costs about as much as a few thousand pixels; a piece is
+   * at least 64 rows */
+  gdouble piece = (gdouble) job->roi.width * MIN (job->roi.height, 64);
+
+  gegl_parallel_distribute_range (n_pieces, 4096.0 / MAX (piece, 1.0),
                                   do_pieces, job);
 }
 
