@@ -18,7 +18,7 @@ build=${BUILD:-build}
 GIMP_RUN_HOME=${GIMP_RUN_HOME:-$here/output/gimp-home}
 export GIMP_RUN_HOME
 set -- "$build"/*.so "$@"
-gimp_build=${GIMP_BUILD:-$top/../gimp-plugin-devtools/gimp-build.sh}
+gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
 if [ "${GIMP_FLATPAK:-1}" = 1 ] && command -v flatpak >/dev/null 2>&1 &&
    flatpak info org.gimp.GIMP >/dev/null 2>&1; then
   cd "$top" && exec "$gimp_build" "$top" "$build/tests/bench" "$@"

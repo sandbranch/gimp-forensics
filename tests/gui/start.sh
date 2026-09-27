@@ -3,7 +3,7 @@
 # photo (open-image.py), with the operations from build/ (or $BUILD) and
 # the plug-ins of this repository in a throwaway profile, isolated from
 # your folders (tests/isolate.sh). For looking at the filters in GIMP's
-# own dialogs with gimp-plugin-devtools/gui/cdp.mjs (look.sh does that).
+# own dialogs with gimp-devtools/gui/cdp.mjs (look.sh does that).
 #
 #   tests/gui/start.sh              http://127.0.0.1:8085/ (display :5)
 #   FORENSICS_BROADWAY=8091:11 tests/gui/start.sh

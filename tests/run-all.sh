@@ -10,7 +10,11 @@
 #   4. tests/workbench-check.sh: the Forensics Workbench in headless GIMP
 #   5. tests/gui/gui-test.sh: the dialogs on Broadway (skipped with
 #      FORENSICS_NO_GUI=1, or without Chrome, node or ImageMagick)
-#   6. the tests of each plug-in folder that has its own
+#   6. tests/content-credentials/run.sh: the Content Credentials plug-in
+#      (skipped until plug-ins/content-credentials/fetch-deps.py and
+#      tests/content-credentials/fetch-images.py have downloaded the C2PA
+#      library and the test files, the only steps that need the network)
+#   7. the tests of each plug-in folder that has its own
 #      plug-ins/<name>/tests/run.sh
 #
 # Everything runs isolated from your folders (tests/isolate.sh); each part
@@ -57,7 +61,7 @@ fi
 
 part check "$here/check.sh"
 
-gimp_build=${GIMP_BUILD:-$top/../gimp-plugin-devtools/gimp-build.sh}
+gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
 if [ ! -f "$top/build/build.ninja" ]; then
     if [ "${GIMP_FLATPAK:-1}" = 1 ] && [ -x "$gimp_build" ]; then
         "$gimp_build" "$top" meson setup build >/dev/null
@@ -78,6 +82,13 @@ if [ -n "${FORENSICS_NO_GUI:-}" ]; then
     echo "=== gui: SKIP (FORENSICS_NO_GUI)"
 else
     part gui "$here/gui/gui-test.sh"
+fi
+
+if [ -d "$top/plug-ins/content-credentials/vendor" ] && [ -n "$(ls "$here/content-credentials/images" 2>/dev/null)" ]; then
+    part content-credentials "$here/content-credentials/run.sh"
+else
+    echo
+    echo "=== content-credentials: SKIP (run plug-ins/content-credentials/fetch-deps.py and tests/content-credentials/fetch-images.py first)"
 fi
 
 for t in "$top"/plug-ins/*/tests/run.sh; do

@@ -1,4 +1,8 @@
 build/
 build-*/
 tests/output/
+plug-ins/content-credentials/vendor/
+plug-ins/content-credentials/vendor.new/
+tests/content-credentials/images/
+tests/content-credentials/output/
 __pycache__/

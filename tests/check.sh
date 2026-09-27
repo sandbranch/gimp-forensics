@@ -2,7 +2,7 @@
 # Builds the operations and their checks (tests/check-*.c) twice, as usual
 # and with AddressSanitizer and UndefinedBehaviorSanitizer, and runs the
 # checks with both. With the Flatpak GIMP everything builds and runs
-# inside it (gimp-plugin-devtools/gimp-build.sh, found next to this
+# inside it (gimp-devtools/gimp-build.sh, found next to this
 # repository or at $GIMP_BUILD); with GIMP_FLATPAK=0 it uses the system
 # GEGL. Needs no network or display; the test images are generated.
 #
@@ -14,7 +14,7 @@
 # The builds and checks run isolated from your folders (GIMP_RUN_HOME,
 # tests/output/gimp-home: see gimp-build.sh), so that nothing lands in
 # ~/.var/app/org.gimp.GIMP. Before and after, it lists your folders of
-# GIMP and the other apps (gimp-plugin-devtools/snapshot.sh, skipped
+# GIMP and the other apps (gimp-devtools/snapshot.sh, skipped
 # without it) and fails if anything there changed.
 #
 # The build folders are in tests/output. Exits with 1 if anything failed.
@@ -38,7 +38,7 @@ quick=
 [ "$1" = quick ] && { quick=1; shift; }
 ops=${*:-error-level jpeg-ghost noise luminance-gradient clone-detect pca infinite}
 
-gimp_build=${GIMP_BUILD:-$top/../gimp-plugin-devtools/gimp-build.sh}
+gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
 if [ "${GIMP_FLATPAK:-1}" = 1 ] && command -v flatpak >/dev/null 2>&1 &&
    flatpak info org.gimp.GIMP >/dev/null 2>&1; then
   [ -x "$gimp_build" ] || { echo "no gimp-build.sh at $gimp_build (set GIMP_BUILD)"; exit 1; }

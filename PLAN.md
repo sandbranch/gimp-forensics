@@ -83,6 +83,6 @@ of Kielux 2013; the tools GPL-3+, the slides CC BY 3.0) and Forensically
   monitor's work area, which is 0 x 0 there, and a negative position in
   sessionrc means right aligned. tests/gui/common.sh moves the window
   back through the page's Broadway client (`cmdMoveResizeSurface`). A
-  note for gimp-plugin-devtools.
+  note for gimp-devtools.
 - GIMP's filter dialog leaves out a property named `output` (it clashes
   with the operation's output pad): named `mode` here.

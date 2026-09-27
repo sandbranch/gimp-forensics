@@ -16,8 +16,14 @@ side by side as layers.
 
 ![Filters > Forensics in GIMP 3.2.6](docs/filters-menu.png)
 
-A Content Credentials (C2PA) plug-in is being added separately, in
-`plug-ins/content-credentials`.
+**Image > Forensics > Content Credentials...** shows the Content
+Credentials (C2PA provenance) of the file an image came from: who signed
+it and when, the actions and ingredients, whether generative AI is
+declared, and whether the credentials are valid, from an unknown signer,
+tampered, or missing. It reads; it never writes. See
+[docs/content-credentials.md](docs/content-credentials.md); GIMP drops
+credentials when it exports, see
+[docs/content-credentials-plan.md](docs/content-credentials-plan.md).
 
 ## What these tools show, and what they do not prove
 

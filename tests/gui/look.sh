@@ -6,7 +6,7 @@
 #
 #   tests/gui/look.sh wait:2000 shot:start key:Escape ...
 #
-# The steps are those of gimp-plugin-devtools/gui/cdp.mjs; positions are
+# The steps are those of gimp-devtools/gui/cdp.mjs; positions are
 # on the page (FORENSICS_VIEW, 1400,1000 by default); dialog:x,y moves the
 # topmost dialog to x, y. The image window is at the top left corner.
 #

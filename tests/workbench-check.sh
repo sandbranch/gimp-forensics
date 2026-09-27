@@ -5,7 +5,7 @@
 # (tests/output/workbench-profile), isolated from your folders
 # (tests/isolate.sh), so that nothing lands in ~/.config/GIMP or
 # ~/.var/app/org.gimp.GIMP. Before and after, it lists your folders of
-# GIMP and the other apps (gimp-plugin-devtools/snapshot.sh) and fails if
+# GIMP and the other apps (gimp-devtools/snapshot.sh) and fails if
 # anything there changed. Exits non-zero if a check fails.
 #
 # Copyright 2026 David

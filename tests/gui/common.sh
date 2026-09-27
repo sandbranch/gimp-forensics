@@ -11,7 +11,7 @@
 tests=$(dirname "$here")
 src=$(dirname "$tests")
 out=$tests/output/gui
-devtools=${GIMP_PLUGIN_DEVTOOLS:-$src/../gimp-plugin-devtools}
+devtools=${GIMP_PLUGIN_DEVTOOLS:-$src/../gimp-devtools}
 view=${FORENSICS_VIEW:-1400,1000}
 
 chrome=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
