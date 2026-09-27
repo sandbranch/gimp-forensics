@@ -95,9 +95,11 @@ else
 fi
 if [ -f "$out/workbench-result.png" ]; then
     m=$(area_mean "$out/workbench-result.png")
-    python3 -c "import sys; sys.exit(0 if $m < 0.15 and $start > 0.3 else 1)" &&
-      pass "workbench_result: the canvas shows Error Level Analysis (mean $start to $m)" ||
-      fail "workbench_result: mean $start to $m"
+    if python3 -c "import sys; sys.exit(0 if $m < 0.15 and $start > 0.3 else 1)"; then
+        pass "workbench_result: the canvas shows Error Level Analysis (mean $start to $m)"
+    else
+        fail "workbench_result: mean $start to $m"
+    fi
 else
     fail "workbench_result: no screenshot"
 fi

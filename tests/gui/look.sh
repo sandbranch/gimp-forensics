@@ -13,6 +13,7 @@
 # Copyright 2026 David
 # SPDX-License-Identifier: GPL-3.0-or-later
 here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=SCRIPTDIR/common.sh
 . "$here/common.sh"
 
 wins=$(wait_windows 1)
