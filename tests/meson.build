@@ -6,6 +6,7 @@ checks = {
   'error-level': 'check-error-level.c',
   'jpeg-ghost': 'check-jpeg-ghost.c',
   'noise': 'check-noise.c',
+  'luminance-gradient': 'check-luminance-gradient.c',
 }
 
 foreach op, source : checks

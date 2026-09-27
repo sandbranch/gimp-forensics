@@ -385,7 +385,11 @@ max_abs_diff (const gfloat *a, const gfloat *b, gsize n)
 
   for (i = 0; i < n; i++)
     {
-      gdouble e = fabs ((gdouble) a[i] - b[i]);
+      gdouble e;
+
+      if (a[i] == b[i])   /* (also equal infinities) */
+        continue;
+      e = fabs ((gdouble) a[i] - b[i]);
 
       if (! (e <= d))
         d = e;   /* (NaN counts as a difference) */

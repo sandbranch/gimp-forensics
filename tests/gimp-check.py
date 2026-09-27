@@ -123,6 +123,7 @@ ENUMS = {
                              'mode': ['normalized', 'difference', 'minimum']},
     'forensics:noise': {'method': ['median', 'wavelet'],
                         'mode': ['color', 'luminance', 'signed']},
+    'forensics:luminance-gradient': {'mode': ['normal', 'direction', 'magnitude']},
 }
 
 
@@ -158,6 +159,10 @@ cases = [
      {'method': 'wavelet', 'mode': 'luminance', 'amplitude': 25.0, 'average': 9}, 1e-6),
     ('noise_float_auto_levels', 'forensics:noise', F32,
      {'radius': 2, 'mode': 'signed', 'auto-levels': True}, 1e-6),
+    ('gradient_float_defaults', 'forensics:luminance-gradient', F32, {}, 1e-6),
+    ('gradient_8_bit', 'forensics:luminance-gradient', U8, {}, 0.5 / 255 + 1e-6),
+    ('gradient_float_direction', 'forensics:luminance-gradient', F32,
+     {'mode': 'direction', 'intensity': 20.0}, 1e-6),
 ]
 cli = {}
 
