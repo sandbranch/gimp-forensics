@@ -233,7 +233,7 @@ check('no_file', not r['is_jpeg'] and r['error'], r['error'])
 # ---- the text report, and no dashes of the wrong kind anywhere in it
 txt = jr.to_text(reports['camera-thumb.jpg'])
 check('text_report', 'Quality: 90' in txt and 'JPEGsnoop assessment' in txt and
-      not re.search('[–—]', txt), '%d lines' % txt.count('\n'))
+      not re.search('[\\u2013\\u2014]', txt), '%d lines' % txt.count('\n'))
 slow = max(reports.values(), key=lambda r: r['_seconds'])
 check('fast_enough', slow['_seconds'] < 10, 'slowest fixture %.1f s' % slow['_seconds'])
 
