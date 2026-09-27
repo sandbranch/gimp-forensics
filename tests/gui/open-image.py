@@ -25,24 +25,45 @@ W, H = 480, 320
 FMT = "R'G'B' float"
 
 
+def value_noise(seed, scale):
+    """smooth random values (not periodic, unlike sums of sines, which
+    Clone Detection rightly finds everywhere): a lattice of random values
+    every scale pixels, interpolated"""
+    rnd = random.Random(seed)
+    gw, gh = W // scale + 2, H // scale + 2
+    grid = [[rnd.random() for _ in range(gw)] for _ in range(gh)]
+
+    def at(x, y):
+        fx, fy = x / scale, y / scale
+        ix, iy = int(fx), int(fy)
+        tx, ty = fx - ix, fy - iy
+        tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+        a = grid[iy][ix] * (1 - tx) + grid[iy][ix + 1] * tx
+        b = grid[iy + 1][ix] * (1 - tx) + grid[iy + 1][ix + 1] * tx
+        return a * (1 - ty) + b * ty
+    return at
+
+
 def scene(seed):
     rnd = random.Random(seed)
+    clouds = value_noise(seed * 10 + 1, 40)
+    fine = value_noise(seed * 10 + 2, 3)
+    coarse = value_noise(seed * 10 + 3, 9)
     data = bytearray()
     for y in range(H):
         for x in range(W):
             u, v = x / (W - 1), y / (H - 1)
             if v < 0.45 + 0.05 * math.sin(6 * u + seed):
                 p = [0.4 + 0.3 * v, 0.6 + 0.2 * v, 0.92 - 0.1 * v]
-                t = 0.5 + 0.5 * math.sin(x / 23.0 + seed) * math.sin(y / 11.0)
+                t = clouds(x, y * 2)
                 p = [p[0] + 0.12 * t, p[1] + 0.12 * t, p[2] + 0.05 * t]
             else:
-                t = 0.5 + 0.25 * math.sin(x * 0.9 + seed) * math.sin(y * 0.7) + \
-                    0.25 * math.sin(x * 0.13) * math.sin(y * 0.21 + seed)
+                t = 0.6 * fine(x, y) + 0.4 * coarse(x, y)
                 p = [0.25 + 0.35 * t, 0.35 + 0.3 * t, 0.1 + 0.2 * t]
             if seed == 1 and (u - 0.25) ** 2 + (v - 0.3) ** 2 < 0.006:
                 p = [0.95, 0.95, 0.9]
             if seed == 2:
-                p = [0.75 + 0.1 * math.sin(x * 0.5), 0.2 + 0.1 * math.sin(y * 0.3), 0.15]
+                p = [0.7 + 0.15 * fine(x, y), 0.2 + 0.1 * coarse(x, y), 0.15]
             data += struct.pack('fff', *[min(max(c + rnd.gauss(0, 3 / 255), 0.0), 1.0)
                                          for c in p])
     return data

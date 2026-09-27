@@ -171,9 +171,13 @@ def show_dialog(procedure, config):
             frames.append(switch + '-frame')
         else:
             frames.append(switch)
-    dialog.get_label('about', 'Each analysis becomes a layer of the Forensics '
-                     'group with its filter, which can be edited later. The '
-                     'results are indicators, not proof.', False, True)
+    about = dialog.get_label('about', 'Each analysis becomes a layer of the '
+                             'Forensics group with its filter, which can be '
+                             'edited later. The results are indicators, not '
+                             'proof.', False, False)
+    about.set_line_wrap(True)
+    about.set_max_width_chars(46)
+    about.set_xalign(0.0)
     dialog.fill(['about'] + frames)
     try:
         return dialog.run()

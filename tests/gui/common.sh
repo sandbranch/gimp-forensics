@@ -6,6 +6,8 @@
 #
 # Copyright 2026 David
 # SPDX-License-Identifier: GPL-3.0-or-later
+# ($here is set by the script that sources this one)
+# shellcheck disable=SC2154
 tests=$(dirname "$here")
 src=$(dirname "$tests")
 out=$tests/output/gui
