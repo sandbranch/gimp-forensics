@@ -36,7 +36,8 @@ snapshot_take "$out/snapshot-check-before.txt"
 
 quick=
 [ "$1" = quick ] && { quick=1; shift; }
-ops=${*:-error-level jpeg-ghost noise luminance-gradient clone-detect pca infinite}
+ops=${*:-error-level jpeg-ghost noise luminance-gradient clone-detect pca bit-plane minmax \
+  wavelet-noise echo median-detect resampling infinite}
 
 gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
 if [ "${GIMP_FLATPAK:-1}" = 1 ] && command -v flatpak >/dev/null 2>&1 &&

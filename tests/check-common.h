@@ -15,6 +15,7 @@
 #define CHECK_COMMON_H
 
 #include <gegl.h>
+#include <gegl-plugin.h>
 #include <glib/gstdio.h>
 #include <math.h>
 #include <stdarg.h>
@@ -413,6 +414,191 @@ quantile (gdouble *v, gsize n, gdouble q)
     return 0;
   qsort (v, n, sizeof *v, cmp_double);
   return v[MIN ((gsize) (q * (n - 1) + 0.5), n - 1)];
+}
+
+/* The checks every operation of the second round gets (check_standard):
+ * NaN and infinities in the input give finite output, the same as with
+ * NaN as 0, infinity as 1 and minus infinity as 0; alpha is passed
+ * through; 1 thread and many give the same; 8 bit, 16 bit and linear
+ * float input give the same as R'G'B'A float; pieces are the same as the
+ * whole image; a change of one pixel changes nothing outside the region
+ * the operation says it invalidates. prop and value: one integer or enum
+ * property to set (NULL for none). */
+static inline gfloat *
+std_run (GeglBuffer *b, const gchar *op, const gchar *prop, gint value,
+         const GeglRectangle *r)
+{
+  GeglRectangle all = *gegl_buffer_get_extent (b);
+
+  if (prop)
+    return run_op_on (b, r ? r : &all, op, prop, value, NULL);
+  return run_op_on (b, r ? r : &all, op, NULL);
+}
+
+static inline void
+check_standard (const gchar *label,
+                const gchar *op,
+                const gchar *prop,
+                gint         value)
+{
+  const gint  w = 150, h = 110;
+  gfloat     *img = make_scene (w, h, 71, 3.0), *clean, *half, *changed;
+  GeglBuffer *b1, *b2, *b3, *ref;
+  gfloat     *e1, *e2, *e3, *e4, *want;
+  gsize       i, n = (gsize) w * h * 4;
+  gboolean    finite = TRUE;
+  gdouble     da = 0;
+  const gfloat bad[] = { NAN, INFINITY, -INFINITY };
+  gint        threads, f, bad_n = 0, x, y;
+  gchar      *name;
+  static const gchar *formats[] = { "R'G'B'A u8", "R'G'B'A u16", "RGBA float" };
+  Rng         rng = { 5 };
+
+  /* 8 bit values, so that every format holds them exactly */
+  for (i = 0; i < n; i++)
+    img[i] = roundf (img[i] * 255) / 255;
+  clean   = g_memdup2 (img, n * sizeof (gfloat));
+  half    = g_memdup2 (img, n * sizeof (gfloat));
+  changed = g_memdup2 (img, n * sizeof (gfloat));
+  ref     = buffer_from (img, w, h, WORK);
+  want    = std_run (ref, op, prop, value, NULL);
+
+  for (i = 0; i < n; i += 9)
+    if (i % 4 != 3)
+      {
+        gfloat v = bad[(i / 9) % G_N_ELEMENTS (bad)];
+
+        img[i] = v;
+        clean[i] = v == v && v > 0 ? 1.0f : 0.0f;
+      }
+  b1 = buffer_from (img, w, h, WORK);
+  b2 = buffer_from (clean, w, h, WORK);
+  e1 = std_run (b1, op, prop, value, NULL);
+  e2 = std_run (b2, op, prop, value, NULL);
+  for (i = 0; i < n; i++)
+    if (! isfinite (e1[i]))
+      finite = FALSE;
+  name = g_strdup_printf ("%s_nan_and_infinities", label);
+  report (name, finite && max_abs_diff (e1, e2, n) == 0.0,
+          "finite, as with NaN as 0, infinity as 1 and minus infinity as 0");
+  g_free (name);
+
+  for (i = 0; i < (gsize) w * h; i++)
+    half[4 * i + 3] = (i % w) / (gfloat) w;
+  b3 = buffer_from (half, w, h, WORK);
+  e3 = std_run (b3, op, prop, value, NULL);
+  for (i = 0; i < (gsize) w * h; i++)
+    da = MAX (da, fabs (e3[4 * i + 3] - half[4 * i + 3]));
+  name = g_strdup_printf ("%s_alpha_passed_through", label);
+  report (name, da == 0.0, NULL);
+  g_free (name);
+
+  g_object_get (gegl_config (), "threads", &threads, NULL);
+  g_object_set (gegl_config (), "threads", 1, NULL);
+  e4 = std_run (ref, op, prop, value, NULL);
+  g_object_set (gegl_config (), "threads", threads, NULL);
+  name = g_strdup_printf ("%s_deterministic", label);
+  report (name, max_abs_diff (want, e4, n) == 0.0, "with 1 and %d threads", threads);
+  g_free (name);
+
+  for (f = 0; f < (gint) G_N_ELEMENTS (formats); f++)
+    {
+      gfloat     *orig = g_memdup2 (want, n * sizeof (gfloat));
+      GeglBuffer *bf;
+      gfloat     *got;
+      gfloat     *src = g_new (gfloat, n);
+
+      /* the 8 bit values (before the NaN went in) */
+      gegl_buffer_get (ref, gegl_buffer_get_extent (ref), 1.0, babl_format (WORK), src,
+                       GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_NONE);
+      bf = buffer_from (src, w, h, formats[f]);
+      got = std_run (bf, op, prop, value, NULL);
+      if (max_abs_diff (got, orig, n) > 1e-5)
+        {
+          bad_n++;
+          printf ("      %s: %g\n", formats[f], max_abs_diff (got, orig, n));
+        }
+      g_free (got);
+      g_free (src);
+      g_free (orig);
+      g_object_unref (bf);
+    }
+  name = g_strdup_printf ("%s_input_formats", label);
+  report (name, bad_n == 0, "8 bit, 16 bit and linear float input");
+  g_free (name);
+
+  bad_n = 0;
+  for (i = 0; i < 12; i++)
+    {
+      GeglRectangle r;
+      gfloat       *got;
+
+      r.x = rng_next (&rng) % w;
+      r.y = rng_next (&rng) % h;
+      r.width  = 1 + rng_next (&rng) % (w - r.x);
+      r.height = 1 + rng_next (&rng) % (h - r.y);
+      got = std_run (ref, op, prop, value, &r);
+      for (y = 0; y < r.height; y++)
+        if (max_abs_diff (got + (gsize) y * r.width * 4,
+                          want + ((gsize) (r.y + y) * w + r.x) * 4,
+                          (gsize) r.width * 4) != 0.0)
+          {
+            bad_n++;
+            break;
+          }
+      g_free (got);
+    }
+  name = g_strdup_printf ("%s_pieces_same_as_whole_image", label);
+  report (name, bad_n == 0, "%d of 12 differ", bad_n);
+  g_free (name);
+
+  /* one pixel changed, near the middle and near an edge */
+  bad_n = 0;
+  {
+    static const gint where[][2] = { { 70, 50 }, { 2, 107 }, { 147, 1 } };
+    gint k;
+
+    for (k = 0; k < 3; k++)
+      {
+        GeglRectangle px = { where[k][0], where[k][1], 1, 1 }, inv;
+        GeglNode     *graph = gegl_node_new ();
+        GeglNode     *src   = gegl_node_new_child (graph, "operation", "gegl:buffer-source",
+                                                   "buffer", ref, NULL);
+        GeglNode     *node  = gegl_node_new_child (graph, "operation", op, NULL);
+        GeglBuffer   *bc;
+        gfloat       *ec;
+        gsize         j = ((gsize) where[k][1] * w + where[k][0]) * 4;
+
+        if (prop)
+          gegl_node_set (node, prop, value, NULL);
+        gegl_node_link (src, node);
+        gegl_node_blit (node, 1.0, &(GeglRectangle) { 0, 0, w, h }, NULL, NULL, 0,
+                        GEGL_BLIT_DEFAULT);
+        inv = gegl_operation_get_invalidated_by_change (gegl_node_get_gegl_operation (node),
+                                                        "input", &px);
+        g_object_unref (graph);
+        gegl_buffer_get (ref, gegl_buffer_get_extent (ref), 1.0, babl_format (WORK), changed,
+                         GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_NONE);
+        changed[j] = 1.0f - changed[j];
+        changed[j + 1] = changed[j + 1] > 0.5f ? 0.0f : 1.0f;
+        bc = buffer_from (changed, w, h, WORK);
+        ec = std_run (bc, op, prop, value, NULL);
+        for (y = 0; y < h; y++)
+          for (x = 0; x < w; x++)
+            if (max_abs_diff (want + ((gsize) y * w + x) * 4, ec + ((gsize) y * w + x) * 4, 4) != 0.0 &&
+                ! (x >= inv.x && x < inv.x + inv.width && y >= inv.y && y < inv.y + inv.height))
+              bad_n++;
+        g_free (ec);
+        g_object_unref (bc);
+      }
+  }
+  name = g_strdup_printf ("%s_changes_within_invalidated_region", label);
+  report (name, bad_n == 0, "%d pixels outside", bad_n);
+  g_free (name);
+
+  g_free (e1); g_free (e2); g_free (e3); g_free (e4); g_free (want);
+  g_object_unref (b1); g_object_unref (b2); g_object_unref (b3); g_object_unref (ref);
+  g_free (img); g_free (clean); g_free (half); g_free (changed);
 }
 
 #endif

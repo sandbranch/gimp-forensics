@@ -25,6 +25,12 @@ operations = {
   'luminance-gradient': ['operations/luminance-gradient.c'],
   'clone-detect': ['operations/clone-detect.c'],
   'pca': ['operations/pca.c'],
+  'bit-plane': ['operations/bit-plane.c'],
+  'minmax': ['operations/minmax.c'],
+  'wavelet-noise': ['operations/wavelet-noise.c'],
+  'echo': ['operations/echo.c'],
+  'median-detect': ['operations/median-detect.c'],
+  'resampling': ['operations/resampling.c'],
 }
 
 modules = {}

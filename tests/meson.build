@@ -9,9 +9,18 @@ checks = {
   'luminance-gradient': 'check-luminance-gradient.c',
   'clone-detect': 'check-clone-detect.c',
   'pca': 'check-pca.c',
+  'bit-plane': 'check-bit-plane.c',
+  'minmax': 'check-minmax.c',
+  'wavelet-noise': 'check-wavelet-noise.c',
+  'echo': 'check-echo.c',
+  'median-detect': 'check-median-detect.c',
+  'resampling': 'check-resampling.c',
 }
 
 foreach op, source : checks
+  if not import('fs').is_file(source)
+    continue
+  endif
   exe = executable('check-' + op, source,
     include_directories: include_directories('../operations'),
     dependencies: [gegl_dep, jpeg_dep, math_dep],
