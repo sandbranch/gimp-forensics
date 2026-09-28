@@ -284,6 +284,16 @@ class JpegError(Exception):
 
 # ---------------------------------------------------------------- structure
 
+def _camera_name(m):
+    """Make and model of a database camera; JPEGsnoop writes "???" for an
+    unknown make, which is left out."""
+    make = (m.get('make') or '').strip()
+    model = (m.get('model') or '').strip()
+    if not make or set(make) == {'?'}:
+        return model or 'unknown camera'
+    return ('%s %s' % (make, model)).strip()
+
+
 def u16(b, i):
     return (b[i] << 8) | b[i + 1]
 
@@ -1954,14 +1964,15 @@ def make_hints(rep):
                                 '"%s").' % (same[0]['make'], same[0]['model'],
                                             same[0]['quality'])))
         else:
-            names = sorted({'%s %s' % (m['make'], m['model']) for m in cams})
+            names = sorted({_camera_name(m) for m in cams})
             hints.append(('note', 'The tables match %d camera%s in the database (%s)%s.' % (
                 len(names), '' if len(names) == 1 else 's', ', '.join(names[:4]) +
                 (', ...' if len(names) > 4 else ''),
                 ', not the one the Exif data name (%s %s)' % (cam.get('Make'), cam.get('Model'))
                 if cam.get('Make') else '')))
     if sws:
-        names = sorted({'%s (%s)' % (m['name'], m['quality']) for m in sws})
+        names = sorted({'%s (%s)' % (m['name'], m['quality']) if (m.get('quality') or '').strip()
+                        else m['name'] for m in sws})
         hints.append(('note', 'The tables match software in the database: %s%s.' % (
             ', '.join(names[:5]), ' and more' if len(names) > 5 else '')))
     if cam.get('Make') and not cams and not q.get('exact'):
