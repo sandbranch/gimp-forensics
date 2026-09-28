@@ -5,8 +5,9 @@
 # The photo: a generated scene saved as a quality 90 JPEG with GIMP's
 # exporter and opened again (the camera's file); into it a region of
 # another scene from a quality 60 JPEG (a paste from another picture),
-# and a patch of the ground copied to another place (a clone). Written to
-# FORENSICS_GUI_OUT/edited.png too. GIMP stays open.
+# and a patch of the ground copied to another place (a clone), saved as a
+# JPEG at 90 (FORENSICS_GUI_OUT/edited.jpg) and opened: the image shown.
+# Written to FORENSICS_GUI_OUT/edited.png too. GIMP stays open.
 #
 # Copyright 2026 David
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -100,8 +101,8 @@ photo = jpeg_copy(scene(1), 90, 'camera.jpg')
 other = jpeg_copy(scene(2), 60, 'other.jpg')
 layer = photo.get_layers()[0]
 buf = layer.get_buffer()
-# the paste: 96 x 80 pixels of the other picture, on the JPEG grid
-paste = Gegl.Rectangle.new(304, 176, 96, 80)
+# the paste: 176 x 128 pixels of the other picture, on the JPEG grid
+paste = Gegl.Rectangle.new(272, 160, 176, 128)
 buf.set(paste, FMT, other.get_layers()[0].get_buffer().get(paste, 1.0, FMT,
                                                            Gegl.AbyssPolicy.NONE))
 # the clone: 64 x 48 pixels of the ground copied 150 pixels to the left
@@ -112,7 +113,27 @@ buf.flush()
 layer.update(0, 0, W, H)
 other.delete()
 layer.set_name('edited photo')
-Gimp.file_save(Gimp.RunMode.NONINTERACTIVE, photo,
+# (a copy is saved, so that the image stays the one opened from
+# camera.jpg, for JPEG Info)
+copy = photo.duplicate()
+Gimp.file_save(Gimp.RunMode.NONINTERACTIVE, copy,
                Gio.File.new_for_path(os.path.join(OUT, 'edited.png')), None)
+# the edited photo saved as a JPEG at 90 and opened again, as it would
+# reach you: the image shown (JPEG Info reads its file)
+export = photo.duplicate()
+path = os.path.join(OUT, 'edited.jpg')
+proc = Gimp.get_pdb().lookup_procedure('file-jpeg-export')
+cfg = proc.create_config()
+cfg.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
+cfg.set_property('image', export)
+cfg.set_property('file', Gio.File.new_for_path(path))
+cfg.set_property('quality', 0.9)
+cfg.set_property('sub-sampling', 'sub-sampling-2x2')
+proc.run(cfg)
+export.delete()
+copy.delete()
+photo.delete()
+photo = Gimp.file_load(Gimp.RunMode.NONINTERACTIVE, Gio.File.new_for_path(path))
+photo.get_layers()[0].set_name('edited photo')
 photo.clean_all()
 Gimp.Display.new(photo)

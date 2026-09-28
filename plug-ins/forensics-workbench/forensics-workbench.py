@@ -227,21 +227,19 @@ def show_dialog(procedure, config, image=None):
     frames = []
     for switch, settings in (('ela', ['ela-quality', 'ela-scale']),
                              ('ghost', ['ghost-quality']),
-                             ('dqmap', []),
                              ('noise', ['noise-amplitude']),
-                             ('wnoise', []), ('minmax', []), ('echo', []),
-                             ('gradient', []),
                              ('clone', ['clone-tolerance']),
-                             ('median', []), ('resampling', []), ('bitplane', []),
-                             ('sweep', ['sweep-position', 'sweep-width']),
-                             ('pca', []), ('hsv', []), ('lab', []), ('thumbnail', []),
-                             ('jpeg-suggest', [])):
-        if settings:
-            dialog.fill_box(switch + '-box', settings)
-            dialog.fill_frame(switch + '-frame', switch, False, switch + '-box')
-            frames.append(switch + '-frame')
-        else:
-            frames.append(switch)
+                             ('sweep', ['sweep-position', 'sweep-width'])):
+        dialog.fill_box(switch + '-box', settings)
+        dialog.fill_frame(switch + '-frame', switch, False, switch + '-box')
+        frames.append(switch + '-frame')
+    # the analyses without settings in two columns
+    flow = dialog.fill_flowbox('more', ['dqmap', 'wnoise', 'minmax', 'echo', 'gradient',
+                                        'median', 'resampling', 'bitplane', 'pca', 'hsv',
+                                        'lab', 'thumbnail'])
+    flow.set_min_children_per_line(2)
+    flow.set_max_children_per_line(2)
+    frames += ['more', 'jpeg-suggest']
     about = dialog.get_label('about', 'Each analysis becomes a layer of the '
                              'Forensics group with its filter, which can be '
                              'edited later. The results are indicators, not '

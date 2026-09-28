@@ -2,12 +2,14 @@
 # The filters and the Forensics Workbench in GIMP's own windows, on a
 # Broadway display (look.sh, with the edited photo of open-image.py):
 #
-#   - Filters > Forensics lists the six filters;
+#   - Filters > Forensics lists the twelve filters;
 #   - each filter's dialog opens from it, and its preview changes the
 #     image on the canvas;
 #   - Image > Forensics > Analyze Image... opens the Workbench's dialog;
 #     OK adds the analyses (the canvas shows Error Level Analysis, dark),
-#     and the Layers dialog shows the Forensics group.
+#     and the Layers dialog shows the Forensics group;
+#   - Image > Forensics > JPEG Info... opens its report; Add Double JPEG
+#     Map adds the map (the region pasted from a quality 60 JPEG white).
 #
 # The checks read the screenshots: the mean of the image's area on the
 # canvas (ImageMagick), against the photo's. A GIMP for each step (after a
@@ -63,7 +65,8 @@ start=$(area_mean "$out/start.png")
 if [ -f "$out/filters-menu.png" ]; then pass "filters_menu_open"; else fail "filters_menu_open"; fi
 
 y=575
-for name in clone-detect error-level jpeg-ghost luminance-gradient noise pca; do
+for name in bit-plane clone-detect echo error-level jpeg-ghost luminance-gradient median-detect \
+    minmax noise pca resampling wavelet-noise; do
     look click:452,72 wait:1500 move:485,575 wait:1200 move:700,575 \
       move:750,$y wait:600 click:750,$y wait:4000 dialog:$dx,150 wait:6000 \
       shot:dialog-$name
@@ -84,7 +87,7 @@ done
 
 look wait:1000 click:238,72 wait:1500 move:270,629 wait:1200 move:450,629 \
   move:552,629 wait:500 click:552,629 wait:6000 dialog:$dx,60 wait:1500 \
-  shot:workbench-dialog click:$((dx + 372)),745 wait:10000 shot:workbench-result \
+  shot:workbench-dialog click:$((dx + 424)),858 wait:15000 shot:workbench-result \
   click:518,72 wait:1200 move:565,97 wait:1200 move:700,97 move:780,148 \
   wait:500 click:780,148 wait:3000 shot:workbench-layers
 if grep -q "windows:.* $dx,60," "$out/look.log" 2>/dev/null ||
@@ -104,15 +107,49 @@ else
     fail "workbench_result: no screenshot"
 fi
 
+# Image > Forensics > JPEG Info...: the dialog, then Add Double JPEG Map
+# (the pasted region was saved at 60 before the photo was saved at 90: it
+# shows white, the rest black)
+jx=700
+look wait:1000 click:238,72 wait:1500 move:270,629 wait:1200 move:450,629 \
+  move:552,679 wait:500 click:552,679 wait:8000 dialog:$jx,60 wait:2000 \
+  shot:jpeg-info-dialog click:$((jx + 339)),810 wait:6000 shot:jpeg-info-map
+# (the dialog covers the right of the canvas: that part changed)
+DLG=$((page_w - jx - 60))x600+$((jx + 10))+150
+dlg_diff () {
+    convert \( "$1" -crop $DLG +repage \) \( "$2" -crop $DLG +repage \) \
+      -compose difference -composite -colorspace gray -format '%[fx:mean]' info:
+}
+if [ -f "$out/jpeg-info-dialog.png" ] &&
+   python3 -c "import sys; sys.exit(0 if $(dlg_diff "$out/start.png" "$out/jpeg-info-dialog.png") > 0.05 else 1)"; then
+    pass "jpeg_info_dialog_open"
+else
+    fail "jpeg_info_dialog_open"
+fi
+if [ -f "$out/jpeg-info-map.png" ]; then
+    m=$(area_mean "$out/jpeg-info-map.png")
+    if python3 -c "import sys; sys.exit(0 if $m < 0.2 and $start > 0.3 else 1)"; then
+        pass "jpeg_info_double_map: the canvas shows the map (mean $start to $m)"
+    else
+        fail "jpeg_info_double_map: mean $start to $m"
+    fi
+else
+    fail "jpeg_info_double_map: no screenshot"
+fi
+
 if [ -n "$docs" ]; then
     mkdir -p "$docs"
-    convert "$out/filters-menu.png" -crop 700x260+400+460 +repage "$docs/filters-menu.png"
-    for name in clone-detect error-level jpeg-ghost luminance-gradient noise pca; do
+    convert "$out/filters-menu.png" -crop 540x320+420+550 +repage "$docs/filters-menu.png"
+    for name in bit-plane clone-detect echo error-level jpeg-ghost luminance-gradient median-detect \
+    minmax noise pca resampling wavelet-noise; do
         [ -f "$out/dialog-$name.png" ] &&
           convert "$out/dialog-$name.png" -crop $((page_w - x0 + 12))x640+$((x0 - 12))+140 +repage \
             "$docs/dialog-$name.png"
     done
-    convert "$out/workbench-dialog.png" -crop 470x790+$((dx - 5))+50 +repage "$docs/workbench-dialog.png"
+    convert "$out/workbench-dialog.png" -crop 480x830+$((dx - 5))+80 +repage "$docs/workbench-dialog.png"
+    convert "$out/jpeg-info-dialog.png" -crop 830x790+$((jx - 5))+80 +repage "$docs/jpeg-info-dialog.png"
+    convert "$out/jpeg-info-map.png" -crop $((page_w - x0 + 12))x640+$((x0 - 12))+120 +repage \
+      "$docs/jpeg-info-map.png"
     convert "$out/workbench-layers.png" -crop $((page_w - x0 + 12))x640+$((x0 - 12))+120 +repage \
       "$docs/workbench-result.png"
 fi

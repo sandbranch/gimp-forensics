@@ -70,6 +70,10 @@ for p in "$src"/plug-ins/*/; do
     rm -rf "${profile:?}/plug-ins/$name"
     mkdir -p "$profile/plug-ins/$name"
     cp "$p"/*.py "$profile/plug-ins/$name/"
+    # (JPEG Info's signatures)
+    for f in "$p"/*.tsv; do
+        [ -f "$f" ] && cp "$f" "$profile/plug-ins/$name/"
+    done
     chmod +x "$profile/plug-ins/$name/$name.py"
 done
 GIMP_RUN_HOME=${GIMP_RUN_HOME:-$tests/output/gimp-home}
