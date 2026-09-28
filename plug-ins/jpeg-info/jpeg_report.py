@@ -1564,6 +1564,171 @@ def double_compression(coefs, nblocks, luma_table, time_limit=None, freqs=DQ_FRE
     return out
 
 
+def _fit_single(h, q2):
+    """the envelope (lam, gam) of a single save fitted to h, and its log
+    likelihood"""
+    V = len(h) - 1
+    n = sum(h)
+    mean = sum(i * c for i, c in enumerate(h)) / max(n, 1) * q2 + 0.3
+    fs = lambda x: -_loglik(h, _single_pmf(q2, V, *_params(x)))  # noqa: E731
+    best_x, best_f = None, None
+    for g0 in (math.log(0.05), math.log(1.5)):
+        x, f = _nelder_mead(fs, [math.log(1.0 / mean), g0])
+        if best_f is None or f < best_f:
+            best_x, best_f = x, f
+    return best_x, -best_f
+
+
+def _mixture_ll(h, pd, ps, iters=60):
+    """alpha by EM, and the log likelihood, of h under alpha pd + (1 - alpha) ps"""
+    n = float(sum(h))
+    a = 0.5
+    for _ in range(iters):
+        t = 0.0
+        for c, d, e in zip(h, pd, ps):
+            if c:
+                t += c * a * d / (a * d + (1 - a) * e)
+        na = t / n
+        if abs(na - a) < 1e-6:
+            a = na
+            break
+        a = na
+    return a, sum(c * math.log(a * d + (1 - a) * e) for c, d, e in zip(h, pd, ps) if c)
+
+
+def _floor(p):
+    k = len(p)
+    return [(1 - EPS) * max(v, 0.0) + EPS / k for v in p]
+
+
+def mixture_frequency(h, q2, max_q1=None):
+    """Part of the image saved twice (with a coarser first step q1), the
+    rest once: the histogram h as a mixture alpha P_D + (1 - alpha) P_S of
+    the two models (after T. Bianchi and A. Piva, "Image Forgery
+    Localization via Block-Grained Analysis of JPEG Artifacts", IEEE TIFS 7
+    (3), 2012), alpha by EM, for each q1 > q2 with the envelope of the
+    single fit; the best three refitted with the envelope free, so that a
+    misfit of the envelope does not pass for a small twice saved part.
+    {'q1', 'alpha', 'gain' (log likelihood over a single save), 'ps', 'pd'
+    (the two pmfs of |v|)}"""
+    V = len(h) - 1
+    x0, single = _fit_single(h, q2)
+    lam, gam = _params(x0)
+    ps0 = _floor(_single_pmf(q2, V, lam, gam))
+    cands = []
+    for q1 in range(q2 + 1, (max_q1 or min(8 * q2, q2 + 40, 64)) + 1):
+        cols = _transfer(q1, q2, V)
+        pd = _floor(_double_pmf(q1, V, lam, gam, cols))
+        a, ll = _mixture_ll(h, pd, ps0, 30)
+        cands.append((ll, q1, cols))
+    cands.sort(key=lambda c: -c[0])
+    best = {'q1': 1, 'alpha': 0.0, 'gain': 0.0, 'ps': ps0, 'pd': ps0}
+    for _, q1, cols in cands[:3]:
+        def f(x):
+            lm, gm = _params(x)
+            ps = _floor(_single_pmf(q2, V, lm, gm))
+            pd = _floor(_double_pmf(q1, V, lm, gm, cols))
+            return -_mixture_ll(h, pd, ps, 30)[1]
+        x, fv = _nelder_mead(f, x0, step=(0.3, 0.5), iters=40)
+        lm, gm = _params(x)
+        ps = _floor(_single_pmf(q2, V, lm, gm))
+        pd = _floor(_double_pmf(q1, V, lm, gm, cols))
+        a, ll = _mixture_ll(h, pd, ps)
+        if ll - single > best['gain']:
+            best = {'q1': q1, 'alpha': a, 'gain': ll - single, 'ps': ps, 'pd': pd}
+    return best
+
+
+MAP_GAIN = 25.0   # nats a frequency must gain to count for the map
+
+
+def double_map(coefs, bw, rows, luma_table, freqs=DQ_FREQS):
+    """A map of where the image looks saved twice on its grid (with a
+    coarser first step) and where once: per 8 x 8 block, the log
+    likelihood ratio of its coefficients under the two models of the
+    frequencies whose mixture fits better than a single save by MAP_GAIN
+    nats or more, summed over the 3 x 3 blocks around it, as the
+    probability that they were saved twice (the prior: the share alpha
+    the mixtures found). {'map': bytes, bw x rows, 0 to 255 (255: saved
+    twice), 'frequencies': [...], 'alpha'}; map None when no frequency
+    counts."""
+    nblocks = bw * rows
+    used = []
+    info = []
+    for k in range(1, 36):
+        if len(info) >= freqs:
+            break
+        idx = ZIGZAG[k]
+        q2 = luma_table[idx]
+        if q2 < 2:
+            continue
+        h = histogram_abs(coefs, nblocks, idx)
+        if sum(h[1:]) < 100:
+            continue
+        m = mixture_frequency(h, q2)
+        entry = {'zigzag': k, 'index': idx, 'q2': q2, 'q1': m['q1'], 'alpha': m['alpha'],
+                 'gain': m['gain']}
+        info.append(entry)
+        if m['q1'] > q2 and m['gain'] >= MAP_GAIN and 0 < m['alpha'] < 1:
+            V = len(h) - 1
+            used.append((idx, V, [math.log(d / e) for d, e in zip(m['pd'], m['ps'])],
+                         m['alpha']))
+    out = {'frequencies': info, 'used': len(used), 'map': None, 'alpha': None}
+    if not used:
+        return out
+    llr = [0.0] * nblocks
+    for idx, V, ratio, _ in used:
+        for b in range(nblocks):
+            v = coefs[64 * b + idx]
+            if v < 0:
+                v = -v
+            llr[b] += ratio[v if v < V else V]
+    alpha = sum(a for _, _, _, a in used) / len(used)
+    alpha = min(max(alpha, 1e-3), 1 - 1e-3)
+    prior = math.log(alpha / (1 - alpha))
+    pix = bytearray(nblocks)
+    for y in range(rows):
+        for x in range(bw):
+            s = 0.0
+            for yy in range(max(y - 1, 0), min(y + 2, rows)):
+                row = yy * bw
+                for xx in range(max(x - 1, 0), min(x + 2, bw)):
+                    s += llr[row + xx]
+            z = s + prior
+            p = 1.0 / (1.0 + math.exp(-z)) if z > -40 else 0.0
+            pix[y * bw + x] = int(p * 255 + 0.5)
+    out['map'] = bytes(pix)
+    out['alpha'] = alpha
+    out['share_double'] = sum(1 for v in pix if v >= 128) / float(nblocks)
+    return out
+
+
+def map_of_file(path, time_limit=120.0):
+    """double_map () of a file's whole luma: {'map', 'bw', 'rows', ...} or
+    {'error'}"""
+    try:
+        with open(path, 'rb') as f:
+            data = f.read()
+        info = parse(data)
+        tq = info['frame']['components'][0]['tq']
+        luma = None
+        for t in info['tables']:
+            if t['id'] == tq:
+                luma = t['values']
+        if luma is None:
+            raise JpegError('no quantisation table for luma')
+        dec = decode_luma(data, info, max_blocks=10 ** 9, time_limit=time_limit)
+    except (OSError, JpegError) as e:
+        return {'error': str(e)}
+    m = double_map(dec['coefs'], dec['bw'], dec['rows'], luma)
+    m['bw'] = dec['bw']
+    m['rows'] = dec['rows']
+    m['width'] = info['frame']['width']
+    m['height'] = info['frame']['height']
+    m['decode_seconds'] = dec['seconds']
+    return m
+
+
 def primary_quality(found):
     """the quality whose table (IJG, or another base table) fits the first
     steps found best: {'quality', 'family', 'matches', 'of', 'steps'}"""

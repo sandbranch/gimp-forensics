@@ -125,6 +125,24 @@ check('double_compression', rep['double']['verdict'] == 'likely' and
       rep['suggest'] == {'ela_quality': 90, 'ghost_quality': 70}, str(rep['suggest']))
 image.delete()
 
+image = load('splice-into-double.jpg')
+proc = Gimp.get_pdb().lookup_procedure(PROC)
+cfg = proc.create_config()
+cfg.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
+cfg.set_property('image', image)
+cfg.set_property('add-double-map', True)
+res = proc.run(cfg)
+rep = json.loads(res.index(1))
+top = image.get_layers()[0]
+inside = mean_of(top, (340, 180, 150, 120))
+outside = mean_of(top, (20, 20, 250, 120))
+check('double_map_layer', rep.get('double_map_layer') == top.get_id() and
+      top.get_name() == 'Double JPEG Map' and (top.get_width(), top.get_height()) == (640, 480) and
+      inside < 40 and outside > 200,
+      'layer %s %dx%d: %.0f in the pasted region, %.0f elsewhere' % (
+          top.get_name(), top.get_width(), top.get_height(), inside, outside))
+image.delete()
+
 image = load('not-jpeg.png')
 status, rep = info(image)
 check('png', status == Gimp.PDBStatusType.SUCCESS and not rep['is_jpeg'] and rep['error'],

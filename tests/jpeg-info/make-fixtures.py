@@ -14,6 +14,9 @@
 #   double-50-85.jpg   50, then 85
 #   double-90-75.jpg   90, then 75 (a first save finer than the last)
 #   double-shifted.jpg 70, opened, 3 pixels cut off the left, saved at 90
+#   splice-into-double.jpg  saved at 70, a region (x 320, y 160, 192 x
+#                      160) of the scene never saved as JPEG pasted in,
+#                      saved at 90
 #                      (the grids do not line up)
 #   camera-thumb.jpg   Exif as a camera writes it (make, model, maker notes)
 #                      with a thumbnail of the image
@@ -143,6 +146,16 @@ for q1, q2, name in ((70, 90, 'double-70-90.jpg'), (50, 85, 'double-50-85.jpg'),
     again = load(first)
     export(again, name, q2)
     again.delete()
+# a region never saved as JPEG pasted into an image saved at 70, the whole
+# saved at 90 (the textbook splice: the rest saved twice, the region once)
+first = load(os.path.join(OUT, 'first-70.jpg'))
+fl = first.get_layers()[0]
+region = Gegl.Rectangle.new(320, 160, 192, 160)
+fl.get_buffer().set(region, FMT, img.get_layers()[0].get_buffer().get(region, 1.0, FMT,
+                                                                       Gegl.AbyssPolicy.NONE))
+fl.get_buffer().flush()
+export(first, 'splice-into-double.jpg', 90, thumbnail=False)
+first.delete()
 first = load(os.path.join(OUT, 'first-70.jpg'))
 first.crop(W - 3, H, 3, 0)
 export(first, 'double-shifted.jpg', 90)

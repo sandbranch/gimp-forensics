@@ -6,7 +6,8 @@
 # save (double compression), the metadata that tells of software, and the
 # Exif thumbnail against the image. "Add Thumbnail Layers" puts the
 # thumbnail, scaled to the image, over a copy of the image in Difference
-# mode.
+# mode; "Add Double JPEG Map" a layer that shows per block where the file
+# looks saved twice and where once (a pasted region often differs).
 #
 # Read only: the file on disk is read, never written. The work is done by
 # jpeg_report.py next to this file (pure Python). Non-interactively the
@@ -23,7 +24,8 @@ import sys
 import gi
 gi.require_version('Gimp', '3.0')
 gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import Gimp, GLib, GObject, GdkPixbuf, Gio  # noqa: E402
+gi.require_version('Gegl', '0.4')
+from gi.repository import Gimp, GLib, GObject, GdkPixbuf, Gio, Gegl  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jpeg_report  # noqa: E402
@@ -32,6 +34,7 @@ PROC = 'plug-in-forensics-jpeg-info'
 MENU = '<Image>/Image/Forensics'
 BINARY = 'jpeg-info'
 GROUP = 'EXIF Thumbnail'
+MAP_LAYER = 'Double JPEG Map'
 
 
 def source_file(image):
@@ -177,6 +180,41 @@ def add_thumbnail_layers(image, path, report):
     return group
 
 
+def add_double_map_layer(image, path, report):
+    """a layer at the top of the image: per 8 x 8 block, how likely it was
+    saved twice on the file's grid with a coarser first step (white) or
+    once (black), jpeg_report.map_of_file (). Returns the layer, or None
+    (the reason goes into report['double_map'])."""
+    m = jpeg_report.map_of_file(path)
+    report['double_map'] = {k: v for k, v in m.items() if k != 'map'}
+    if not m.get('map'):
+        return None
+    bw, rows = m['bw'], m['rows']
+    rgba = bytearray(4 * bw * rows)
+    rgba[0::4] = m['map']
+    rgba[1::4] = m['map']
+    rgba[2::4] = m['map']
+    rgba[3::4] = b'\xff' * (bw * rows)
+    image.undo_group_start()
+    Gimp.context_push()
+    try:
+        layer = Gimp.Layer.new(image, MAP_LAYER, bw, rows, Gimp.ImageType.RGBA_IMAGE, 100,
+                               Gimp.LayerMode.NORMAL)
+        image.insert_layer(layer, None, 0)
+        buf = layer.get_buffer()
+        buf.set(Gegl.Rectangle.new(0, 0, bw, rows), "R'G'B'A u8", bytes(rgba))
+        buf.flush()
+        Gimp.context_set_interpolation(Gimp.InterpolationType.NONE)
+        layer.scale(8 * bw, 8 * rows, False)
+        layer.set_offsets(0, 0)
+        layer.resize(image.get_width(), image.get_height(), 0, 0)
+        image.set_selected_layers([layer])
+    finally:
+        Gimp.context_pop()
+        image.undo_group_end()
+    return layer
+
+
 # ------------------------------------------------------------ the dialog
 
 LEVEL_BADGE = {'edit': ('#b3261e', 'SIGN'), 'note': ('#5f6368', 'NOTE'), 'ok': ('#1b7a34', 'OK')}
@@ -294,6 +332,8 @@ def show_dialog(rep, thumb, image, path):
 
     esc = GLib.markup_escape_text
     dialog = GimpUi.Dialog(title='JPEG Info', role=BINARY, modal=True)
+    if rep.get('is_jpeg') and not rep['frame']['kind'].startswith(('lossless', 'differential')):
+        dialog.add_button('Add Double JPEG _Map', 3)
     if thumb:
         dialog.add_button('_Add Thumbnail Layers', 2)
     dialog.add_button('_Copy Report', 1)
@@ -368,6 +408,13 @@ def show_dialog(rep, thumb, image, path):
         if response == 2:
             add_thumbnail_layers(image, path, rep)
             Gimp.displays_flush()
+        if response == 3:
+            if add_double_map_layer(image, path, rep) is None:
+                Gimp.message('No double JPEG map: %s' % (
+                    rep['double_map'].get('error') or 'no frequency fits a mixture of saved '
+                    'once and saved twice better than a single save (no part saved twice '
+                    'with coarser steps shows)'))
+            Gimp.displays_flush()
         break
     dialog.destroy()
 
@@ -389,8 +436,12 @@ def run(procedure, run_mode, image, drawables, config, data):
         group = None
         if run_mode == Gimp.RunMode.INTERACTIVE:
             show_dialog(rep, thumb, image, path)
-        elif config.get_property('add-thumbnail') and rep.get('is_jpeg'):
-            group = add_thumbnail_layers(image, path, rep)
+        else:
+            if config.get_property('add-thumbnail') and rep.get('is_jpeg'):
+                group = add_thumbnail_layers(image, path, rep)
+            if config.get_property('add-double-map') and rep.get('is_jpeg'):
+                layer = add_double_map_layer(image, path, rep)
+                rep['double_map_layer'] = layer.get_id() if layer else None
         rep['thumbnail_group'] = group.get_id() if group else None
     except Exception as e:  # never fail silently: say what went wrong
         return procedure.new_return_values(Gimp.PDBStatusType.EXECUTION_ERROR,
@@ -431,6 +482,10 @@ class JpegInfo(Gimp.PlugIn):
         p.add_boolean_argument('add-thumbnail', 'Add _thumbnail layers',
                                'Add the Exif thumbnail over a copy of the image, in Difference '
                                'mode (non-interactive runs)', False, GObject.ParamFlags.READWRITE)
+        p.add_boolean_argument('add-double-map', 'Add double JPEG _map',
+                               'Add a layer that shows, per 8 x 8 block, how likely it was saved '
+                               'twice with a coarser first save (white) or once (non-interactive '
+                               'runs)', False, GObject.ParamFlags.READWRITE)
         p.add_string_return_value('report', 'Report', 'The report, as JSON', '',
                                   GObject.ParamFlags.READWRITE)
         return p

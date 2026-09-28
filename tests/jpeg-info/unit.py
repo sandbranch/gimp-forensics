@@ -165,6 +165,24 @@ for n, why in (('double-90-75.jpg', 'first save finer than the last'),
     check('not_seen_%s' % n.split('.')[0].replace('-', '_'), d['verdict'] in ('none', 'weak'),
           '%s: %s (the known limit)' % (why, d['verdict']))
 
+# ---- the double JPEG map: the pasted region saved once, the rest twice
+m = jr.map_of_file(fx('splice-into-double.jpg'))
+if m.get('map'):
+    bw = m['bw']
+    inside = [m['map'][y * bw + x] for y in range(20 + 2, 40 - 2) for x in range(40 + 2, 64 - 2)]
+    outside = [m['map'][y * bw + x] for y in range(m['rows']) for x in range(bw)
+               if not (18 <= y < 42 and 38 <= x < 66)]
+    mi, mo = sum(inside) / len(inside), sum(outside) / len(outside)
+    check('double_map_splice', mi < 40 and mo > 200,
+          'mean %.0f in the pasted region, %.0f elsewhere (255: saved twice), %d frequencies, '
+          'first steps %s' % (mi, mo, m['used'], sorted({f['q1'] for f in m['frequencies']})))
+else:
+    check('double_map_splice', False, str(m.get('error') or m.get('frequencies')))
+m = jr.map_of_file(fx('q90.jpg'))
+share = m.get('share_double') or 0.0
+check('double_map_single_save', m.get('map') is None or share < 0.01,
+      'no map' if m.get('map') is None else '%.2f %% of the blocks look saved twice' % (100 * share))
+
 # ---- Exif and thumbnails
 r = reports['camera-thumb.jpg']
 cam = r['metadata']['exif']['camera']
