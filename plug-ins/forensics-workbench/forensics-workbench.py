@@ -24,13 +24,19 @@
 Adds a layer group "Forensics" at the top of the image with one copy of
 the image as it looks (the visible layers, flattened) per analysis, each
 carrying its analysis as a non-destructive filter: Error Level Analysis,
-JPEG Ghost, Noise Analysis, Luminance Gradient, Clone Detection and
-Principal Components (the forensics: operations of this repository), a
-level sweep (gegl:levels on a narrow band of brightness), and the HSV and
-LAB channels (gegl:component-extract). Only the top analysis is visible;
-switch between them in the Layers dialog, and change an analysis's
-settings by editing its filter (the fx icon of the layer). The image's
-own layers are not touched.
+JPEG Ghost, Noise Analysis, Wavelet Noise Map, Min/Max Deviation, Echo
+Edge Filter, Luminance Gradient, Clone Detection, Median Filtering and
+Resampling Detection, Bit Plane 0 and Principal Components (the
+forensics: operations of this repository), a level sweep (gegl:levels on
+a narrow band of brightness), and the HSV and LAB channels
+(gegl:component-extract). For an image opened from a JPEG file the JPEG
+Info plug-in of this repository adds its double JPEG map and the Exif
+thumbnail over the image, and gives the quality of the file's last save,
+which Error Level Analysis then uses (and JPEG Ghost that of an earlier
+save, if one shows). Only the top analysis is visible; switch between
+them in the Layers dialog, and change an analysis's settings by editing
+its filter (the fx icon of the layer). The image's own layers are not
+touched.
 """
 
 import math
@@ -68,18 +74,28 @@ def level_sweep_props(config):
 
 # The analyses, top of the group first: (switch, layer name, operation,
 # settings from the config). Each switch turns on one or more layers.
-def analyses(config):
+# 'jpeg:...' are layers the JPEG Info plug-in adds (from the file on disk).
+def analyses(config, suggest=None):
     c = config.get_property
+    suggest = suggest or {}
+    ela_q = suggest.get('ela_quality', c('ela-quality'))
+    ghost_q = suggest.get('ghost_quality', c('ghost-quality'))
     return [
         ('ela', 'Error Level Analysis', 'forensics:error-level',
-         {'quality': c('ela-quality'), 'scale': c('ela-scale')}),
-        ('ghost', 'JPEG Ghost', 'forensics:jpeg-ghost',
-         {'quality': c('ghost-quality')}),
+         {'quality': ela_q, 'scale': c('ela-scale')}),
+        ('ghost', 'JPEG Ghost', 'forensics:jpeg-ghost', {'quality': ghost_q}),
+        ('dqmap', 'Double JPEG Map', 'jpeg:double-map', {}),
         ('noise', 'Noise Analysis', 'forensics:noise',
          {'amplitude': c('noise-amplitude')}),
+        ('wnoise', 'Wavelet Noise Map', 'forensics:wavelet-noise', {'normalize': True}),
+        ('minmax', 'Min/Max Deviation', 'forensics:minmax', {'mode': 'density'}),
+        ('echo', 'Echo Edge Filter', 'forensics:echo', {}),
         ('gradient', 'Luminance Gradient', 'forensics:luminance-gradient', {}),
         ('clone', 'Clone Detection', 'forensics:clone-detect',
          {'tolerance': c('clone-tolerance')}),
+        ('median', 'Median Filtering Detection', 'forensics:median-detect', {}),
+        ('resampling', 'Resampling Detection', 'forensics:resampling', {}),
+        ('bitplane', 'Bit Plane 0', 'forensics:bit-plane', {'bit': 0}),
         ('sweep', 'Level Sweep', 'gegl:levels', level_sweep_props(config)),
         ('pca', 'Principal Component 2', 'forensics:pca', {'component': 2}),
         ('pca', 'Principal Component 3', 'forensics:pca', {'component': 3}),
@@ -89,7 +105,33 @@ def analyses(config):
         ('lab', 'LAB L', 'gegl:component-extract', {'component': 'lab-l'}),
         ('lab', 'LAB A', 'gegl:component-extract', {'component': 'lab-a'}),
         ('lab', 'LAB B', 'gegl:component-extract', {'component': 'lab-b'}),
+        ('thumbnail', 'EXIF Thumbnail', 'jpeg:thumbnail', {}),
     ]
+
+
+JPEG_INFO = 'plug-in-forensics-jpeg-info'
+
+
+def jpeg_info(image, thumbnail=False, double_map=False):
+    """the JPEG Info plug-in's report of the image's file (a dict), with
+    the layers asked for added at the top of the image; None if that
+    plug-in is not installed or fails"""
+    import json
+    proc = Gimp.get_pdb().lookup_procedure(JPEG_INFO)
+    if proc is None:
+        return None
+    cfg = proc.create_config()
+    cfg.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
+    cfg.set_property('image', image)
+    cfg.set_property('add-thumbnail', thumbnail)
+    cfg.set_property('add-double-map', double_map)
+    res = proc.run(cfg)
+    if res.index(0) != Gimp.PDBStatusType.SUCCESS:
+        return None
+    try:
+        return json.loads(res.index(1))
+    except (TypeError, ValueError):
+        return None
 
 
 class WorkbenchError(Exception):
@@ -103,11 +145,11 @@ def workbench_groups(image):
 
 
 def analyze(image, config):
-    chosen = [a for a in analyses(config) if config.get_property(a[0])]
-    if not chosen:
+    wanted = [a for a in analyses(config) if config.get_property(a[0])]
+    if not wanted:
         raise WorkbenchError('Choose at least one analysis.')
-    for switch, name, op, props in chosen:
-        if not Gegl.has_operation(op):
+    for switch, name, op, props in wanted:
+        if not op.startswith('jpeg:') and not Gegl.has_operation(op):
             raise WorkbenchError(
                 'The filter %s is not installed: install the forensics '
                 'operations (see the README of gimp-forensics) and restart GIMP.' % op)
@@ -120,6 +162,23 @@ def analyze(image, config):
             g.set_visible(False)
         base = Gimp.Layer.new_from_visible(image, image, 'image')
 
+        # the file's JPEG Info: the qualities for ELA and JPEG Ghost, and
+        # the layers made from the file
+        want_thumb = any(a[0] == 'thumbnail' for a in wanted)
+        want_map = any(a[0] == 'dqmap' for a in wanted)
+        rep = None
+        if config.get_property('jpeg-suggest') or want_thumb or want_map:
+            rep = jpeg_info(image, want_thumb, want_map)
+        suggest = (rep or {}).get('suggest', {}) if config.get_property('jpeg-suggest') else {}
+        chosen = [a for a in analyses(config, suggest) if config.get_property(a[0])]
+        made = {}
+        if rep:
+            for key, rid in (('thumbnail', rep.get('thumbnail_group')),
+                             ('dqmap', rep.get('double_map_layer'))):
+                item = Gimp.Item.get_by_id(rid) if rid else None
+                if item is not None:
+                    made[key] = item
+
         group = Gimp.GroupLayer.new(image, GROUP_NAME)
         image.insert_layer(group, None, 0)
         group.attach_parasite(Gimp.Parasite.new(PARASITE, Gimp.PARASITE_PERSISTENT,
@@ -127,6 +186,13 @@ def analyze(image, config):
         # bottom first, so that the first analysis ends up on top
         layers = []
         for switch, name, op, props in reversed(chosen):
+            if op.startswith('jpeg:'):
+                item = made.get(switch)
+                if item is None:
+                    continue           # not a JPEG file, or nothing to show
+                image.reorder_item(item, group, 0)
+                layers.append(item)
+                continue
             layer = base.copy()
             layer.set_name(name)
             image.insert_layer(layer, group, 0)
@@ -141,7 +207,8 @@ def analyze(image, config):
         for layer in layers:
             layer.set_visible(layer is layers[-1])
         base.delete()
-        image.set_selected_layers([layers[-1]])
+        if layers:
+            image.set_selected_layers([layers[-1]])
     finally:
         image.undo_group_end()
     return group
@@ -150,7 +217,7 @@ def analyze(image, config):
 GimpUi = None
 
 
-def show_dialog(procedure, config):
+def show_dialog(procedure, config, image=None):
     global GimpUi
     gi.require_version('GimpUi', '3.0')
     from gi.repository import GimpUi as _GimpUi
@@ -160,11 +227,15 @@ def show_dialog(procedure, config):
     frames = []
     for switch, settings in (('ela', ['ela-quality', 'ela-scale']),
                              ('ghost', ['ghost-quality']),
+                             ('dqmap', []),
                              ('noise', ['noise-amplitude']),
+                             ('wnoise', []), ('minmax', []), ('echo', []),
                              ('gradient', []),
                              ('clone', ['clone-tolerance']),
+                             ('median', []), ('resampling', []), ('bitplane', []),
                              ('sweep', ['sweep-position', 'sweep-width']),
-                             ('pca', []), ('hsv', []), ('lab', [])):
+                             ('pca', []), ('hsv', []), ('lab', []), ('thumbnail', []),
+                             ('jpeg-suggest', [])):
         if settings:
             dialog.fill_box(switch + '-box', settings)
             dialog.fill_frame(switch + '-frame', switch, False, switch + '-box')
@@ -178,7 +249,21 @@ def show_dialog(procedure, config):
     about.set_line_wrap(True)
     about.set_max_width_chars(46)
     about.set_xalign(0.0)
-    dialog.fill(['about'] + frames)
+    head = ['about']
+    rep = jpeg_info(image) if image is not None else None
+    if rep and rep.get('is_jpeg') and rep.get('suggest'):
+        sg = rep['suggest']
+        text = 'The file was saved last at quality %d%s. With "Use the file\'s JPEG ' \
+               'quality" Error Level Analysis uses %d%s.' % (
+                   sg['ela_quality'], ', first at about %d' % sg['ghost_quality']
+                   if 'ghost_quality' in sg else '', sg['ela_quality'],
+                   ' and JPEG Ghost %d' % sg['ghost_quality'] if 'ghost_quality' in sg else '')
+        note = dialog.get_label('jpeg-note', text, False, False)
+        note.set_line_wrap(True)
+        note.set_max_width_chars(46)
+        note.set_xalign(0.0)
+        head.append('jpeg-note')
+    dialog.fill(head + frames)
     try:
         return dialog.run()
     finally:
@@ -190,7 +275,7 @@ def run(procedure, run_mode, image, drawables, config, data):
         if image.get_base_type() == Gimp.ImageBaseType.INDEXED:
             raise WorkbenchError('The Forensics Workbench works on RGB and grayscale '
                                  'images (Image > Mode).')
-        if run_mode == Gimp.RunMode.INTERACTIVE and not show_dialog(procedure, config):
+        if run_mode == Gimp.RunMode.INTERACTIVE and not show_dialog(procedure, config, image):
             return procedure.new_return_values(Gimp.PDBStatusType.CANCEL, None)
         analyze(image, config)
         Gimp.displays_flush()
@@ -229,8 +314,11 @@ class Workbench(Gimp.PlugIn):
             'Adds a layer group "Forensics" at the top of the image with one copy '
             'of the image as it looks per analysis, each with its analysis as a '
             'non-destructive filter (Error Level Analysis, JPEG Ghost, Noise '
-            'Analysis, Luminance Gradient, Clone Detection, Principal Components, '
-            'a level sweep, the HSV and LAB channels). Only the top analysis is '
+            'Analysis, Wavelet Noise Map, Min/Max Deviation, Echo Edge Filter, '
+            'Luminance Gradient, Clone Detection, Median Filtering and Resampling '
+            'Detection, Bit Plane 0, Principal Components, a level sweep, the HSV '
+            'and LAB channels), and from a JPEG file its double JPEG map and Exif '
+            'thumbnail (with the JPEG Info plug-in). Only the top analysis is '
             'visible. The image\'s own layers are not changed. The analyses are '
             'indicators, not proof.', name)
         p.set_attribution('David', 'David', '2026')
@@ -267,6 +355,30 @@ class Workbench(Gimp.PlugIn):
         p.add_boolean_argument('pca', '_Principal Components',
                                'The image along its second and third color components',
                                True, rw)
+        p.add_boolean_argument('dqmap', 'Double JPEG _map',
+                               'Per block of a JPEG file: saved twice (white) or once '
+                               '(needs the JPEG Info plug-in)', True, rw)
+        p.add_boolean_argument('wnoise', '_Wavelet Noise Map',
+                               'The noise level of each block (Mahdian and Saic)', True, rw)
+        p.add_boolean_argument('minmax', 'Min/Max De_viation',
+                               'The density of pixels darker or brighter than all their '
+                               'neighbours', True, rw)
+        p.add_boolean_argument('echo', '_Echo Edge Filter',
+                               'The Laplacian, amplified: blurred regions stay dark', True, rw)
+        p.add_boolean_argument('median', 'Median _Filtering Detection',
+                               'Streaking of a median filter (images never saved as JPEG)',
+                               False, rw)
+        p.add_boolean_argument('resampling', '_Resampling Detection',
+                               'Periodic traces of interpolation (images never saved as JPEG)',
+                               False, rw)
+        p.add_boolean_argument('bitplane', '_Bit Plane 0', 'The lowest bit of the luma', False, rw)
+        p.add_boolean_argument('thumbnail', 'EXIF _thumbnail',
+                               'The Exif thumbnail of a JPEG file over the image, Difference '
+                               'mode (needs the JPEG Info plug-in)', True, rw)
+        p.add_boolean_argument('jpeg-suggest', 'Use the file\'s JPEG _quality',
+                               'Error Level Analysis at the quality of the file\'s last save, '
+                               'JPEG Ghost at that of an earlier one if one shows (needs the '
+                               'JPEG Info plug-in)', True, rw)
         p.add_boolean_argument('hsv', '_HSV channels', 'Hue, saturation and value', False, rw)
         p.add_boolean_argument('lab', 'LA_B channels', 'L, a and b of CIE LAB', False, rw)
         return p

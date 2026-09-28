@@ -21,11 +21,15 @@ profile="$here/output/workbench-profile"
 ls "$build"/*.so >/dev/null 2>&1 ||
   { echo "no modules in $build: build first (README)" >&2; exit 2; }
 rm -rf "$mod" "$out" "$profile/plug-ins"
-mkdir -p "$mod" "$out" "$profile/plug-ins/forensics-workbench"
+mkdir -p "$mod" "$out" "$profile/plug-ins/forensics-workbench" "$profile/plug-ins/jpeg-info"
 cp "$build"/*.so "$mod/"
 cp "$top/plug-ins/forensics-workbench/forensics-workbench.py" \
   "$profile/plug-ins/forensics-workbench/"
 chmod +x "$profile/plug-ins/forensics-workbench/forensics-workbench.py"
+# (the JPEG Info plug-in too: the Workbench takes the file's qualities and
+# layers from it)
+cp "$top"/plug-ins/jpeg-info/*.py "$top"/plug-ins/jpeg-info/*.tsv "$profile/plug-ins/jpeg-info/"
+chmod +x "$profile/plug-ins/jpeg-info/jpeg-info.py"
 src=$top
 GIMP_RUN_HOME=${GIMP_RUN_HOME:-$here/output/gimp-home}
 export GIMP_RUN_HOME
@@ -37,7 +41,7 @@ status=0
 gimp_run --flatpak --filesystem="$top" \
   --env=GIMP3_DIRECTORY="$profile" \
   --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
-  --env=FORENSICS_CHECK_OUT="$out" -- \
+  --env=FORENSICS_CHECK_OUT="$out" --env=FORENSICS_SRC="$top" -- \
   gimp-console-3.2 --new-instance --no-interface --no-data --no-fonts \
   --batch-interpreter python-fu-eval \
   -b "exec(open('$here/workbench-check.py').read())" --quit 2>&1 |

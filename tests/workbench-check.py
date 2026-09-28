@@ -13,6 +13,7 @@ import array
 import math
 import os
 import random
+import sys
 
 import gi
 gi.require_version('Gimp', '3.0')
@@ -26,11 +27,16 @@ PROC = 'python-fu-forensics-workbench'
 failed = []
 
 DEFAULT_LAYERS = ['Error Level Analysis', 'JPEG Ghost', 'Noise Analysis',
+                  'Wavelet Noise Map', 'Min/Max Deviation', 'Echo Edge Filter',
                   'Luminance Gradient', 'Clone Detection', 'Level Sweep',
                   'Principal Component 2', 'Principal Component 3']
 DEFAULT_OPS = ['forensics:error-level', 'forensics:jpeg-ghost', 'forensics:noise',
+               'forensics:wavelet-noise', 'forensics:minmax', 'forensics:echo',
                'forensics:luminance-gradient', 'forensics:clone-detect', 'gegl:levels',
                'forensics:pca', 'forensics:pca']
+OFF = dict(ela=False, ghost=False, noise=False, gradient=False, clone=False, sweep=False,
+           pca=False, hsv=False, lab=False, dqmap=False, wnoise=False, minmax=False, echo=False,
+           median=False, resampling=False, bitplane=False, thumbnail=False)
 
 
 def result(name, ok, msg=''):
@@ -142,14 +148,16 @@ result('original_untouched', len(layers) == 2 and layers[1] == photo and
 kid_layers = top.get_children()
 checks = [(0, 'forensics:error-level', {'quality': 90, 'scale': 20.0}),
           (2, 'forensics:noise', {'amplitude': 10.0}),
-          (6, 'forensics:pca', {'component': 2})]
+          (4, 'forensics:minmax', {'mode': 1}),
+          (5, 'forensics:echo', {}),
+          (9, 'forensics:pca', {'component': 2})]
 for i, op, props in checks:
     dup = image.duplicate()
     layer = dup.get_layers()[0].get_children()[i]
     layer.merge_filters()
     want = array.array('f', (min(max(v, 0.0), 1.0) for v in gegl_on(before, op, props)))
     d = max_diff(pixels(layer), want)
-    result('pixels_%s' % kids[i][0].lower().replace(' ', '_'), d <= 0.5 / 255 + 1e-6,
+    result('pixels_%s' % kids[i][0].lower().replace(' ', '_').replace('/', '_'), d <= 0.5 / 255 + 1e-6,
            'merged filter against %s on the flattened image: max difference %.2g' % (op, d))
     dup.delete()
 
@@ -197,8 +205,7 @@ patch.set_offsets(100, 50)
 patch.get_buffer().set(Gegl.Rectangle.new(0, 0, 40, 30), FMT,
                        array.array('f', [0.9, 0.1, 0.1, 1.0] * (40 * 30)).tobytes())
 patch.get_buffer().flush()
-status = workbench(image, ela=True, ghost=False, noise=False, gradient=False, clone=False,
-                   sweep=False, pca=False)
+status = workbench(image, **dict(OFF, ela=True))
 top, kids = group_state(image)
 # the analysed copy holds the visible image (a layer's buffer is without
 # its filters): the red patch on the photo
@@ -214,10 +221,81 @@ image.delete()
 
 # 5. nothing chosen: an error, nothing added
 image, photo = new_image(data)
-status = workbench(image, ela=False, ghost=False, noise=False, gradient=False, clone=False,
-                   sweep=False, pca=False, hsv=False, lab=False)
+status = workbench(image, **OFF)
 result('nothing_chosen_is_an_error', status == Gimp.PDBStatusType.CALLING_ERROR and
        len(image.get_layers()) == 1, str(status))
+image.delete()
+
+# 6. the optional analyses
+image, photo = new_image(data)
+status = workbench(image, **dict(OFF, median=True, resampling=True, bitplane=True))
+top, kids = group_state(image)
+result('optional_analyses', status == Gimp.PDBStatusType.SUCCESS and
+       [k[0] for k in kids] == ['Median Filtering Detection', 'Resampling Detection',
+                                'Bit Plane 0'] and
+       [k[1] for k in kids] == [['forensics:median-detect'], ['forensics:resampling'],
+                                ['forensics:bit-plane']], str(kids))
+image.delete()
+
+# 7. an image opened from a JPEG file (saved at 70, then at 90, with an
+# Exif thumbnail): JPEG Info's layers go into the group, and ELA and JPEG
+# Ghost take the file's qualities
+sys.path.insert(0, os.path.join(os.environ['FORENSICS_SRC'], 'tests', 'jpeg-info'))
+from exif_fixture import exif_segment, with_exif  # noqa: E402
+
+
+def export_jpeg(image, path, quality):
+    proc = Gimp.get_pdb().lookup_procedure('file-jpeg-export')
+    cfg = proc.create_config()
+    cfg.set_property('run-mode', Gimp.RunMode.NONINTERACTIVE)
+    cfg.set_property('image', image)
+    cfg.set_property('file', Gio.File.new_for_path(path))
+    cfg.set_property('quality', quality / 100.0)
+    cfg.set_property('sub-sampling', 'sub-sampling-2x2')
+    cfg.set_property('include-exif', False)
+    cfg.set_property('include-thumbnail', False)
+    proc.run(cfg)
+
+
+def load(path):
+    return Gimp.file_load(Gimp.RunMode.NONINTERACTIVE, Gio.File.new_for_path(path))
+
+
+image, photo = new_image(data)
+export_jpeg(image, os.path.join(OUT, 'first.jpg'), 70)
+image.delete()
+first = load(os.path.join(OUT, 'first.jpg'))
+export_jpeg(first, os.path.join(OUT, 'photo.jpg'), 90)
+first.scale(160, 120)
+export_jpeg(first, os.path.join(OUT, 'thumb.jpg'), 80)
+first.delete()
+with_exif(os.path.join(OUT, 'photo.jpg'),
+          exif_segment('NIKON', 'COOLPIX L23', 'COOLPIX L23 V1.1',
+                       open(os.path.join(OUT, 'thumb.jpg'), 'rb').read()))
+image = load(os.path.join(OUT, 'photo.jpg'))
+status = workbench(image)
+top, kids = group_state(image)
+names = [k[0] for k in kids]
+kid_layers = top.get_children()
+ela = kid_layers[0].get_filters()[0].get_config().get_property('quality')
+ghost = kid_layers[1].get_filters()[0].get_config().get_property('quality')
+thumb = kid_layers[-1]
+result('jpeg_file_layers', status == Gimp.PDBStatusType.SUCCESS and
+       names[:3] == ['Error Level Analysis', 'JPEG Ghost', 'Double JPEG Map'] and
+       names[-1] == 'EXIF Thumbnail' and thumb.is_group() and len(thumb.get_children()) == 2 and
+       len(image.get_layers()) == 2 and [k[2] for k in kids].count(True) == 1,
+       '; '.join(names))
+result('jpeg_file_qualities', ela == 90 and ghost == 70,
+       'Error Level Analysis at %s (the last save), JPEG Ghost at %s (the first)' % (ela, ghost))
+image.delete()
+image = load(os.path.join(OUT, 'photo.jpg'))
+status = workbench(image, jpeg_suggest=False, dqmap=False, thumbnail=False, ela_quality=75,
+                   ghost_quality=60)
+top, kids = group_state(image)
+ela = top.get_children()[0].get_filters()[0].get_config().get_property('quality')
+result('jpeg_file_without_suggestions', status == Gimp.PDBStatusType.SUCCESS and ela == 75 and
+       top.get_children()[1].get_filters()[0].get_config().get_property('quality') == 60 and
+       'Double JPEG Map' not in [k[0] for k in kids], 'the qualities given (75 and 60)')
 image.delete()
 
 with open(os.path.join(OUT, 'workbench-check.status'), 'w') as f:
