@@ -133,23 +133,19 @@ certificate chains only to a time stamp authority's root is UNKNOWN
 SIGNER. When a signer chains to more than one list, the first of C2PA
 Trust List, Interim Trust List, your own anchors is named.
 
-c2pa-rs 0.91.0 does not make this distinction by itself: it tries every
-list, of any kind, for the signer and for the time stamp authority alike,
-and names whichever it finds first, in an order that changes from one
-read to the next. So the plug-in reads the file a second time with only
-the signing lists to decide the signer's trust, keeping the time stamp
-result of the first read (with the TSA list); when the signer chains to
-more than one signing list, it checks them one at a time, in the order
-above. One limit: the second read either trusts every time stamp or
-checks them all against the signing lists, not the TSA list. It trusts
-them when the first read trusted every one; when the first read found an
-untrusted one, it checks them, so a time stamp trusted only through the
-TSA list does not count there, and a signer's certificate that expired
-after such a time stamp is reported as expired. That takes a file with
-time stamps of both kinds (none of the test or sample files has an
-untrusted one), and errs toward less trust, never more. See
-[content-credentials-plan.md](content-credentials-plan.md) for the
-details and a draft upstream report.
+To decide this, the plug-in reads the file a second time with only the
+signing lists and takes the signer's trust from that read, keeping the
+time stamp result of the first read (with the TSA list); when the signer
+chains to more than one signing list, it checks them one at a time, in
+the order above, so the name shown is always the same. One limit: the
+second read either trusts every time stamp or checks them all against the
+signing lists, not the TSA list. It trusts them when the first read
+trusted every one; when the first read found an untrusted one, it checks
+them, so a time stamp trusted only through the TSA list does not count
+there, and a signer's certificate that expired after such a time stamp is
+reported as expired. That takes a file with time stamps of both kinds
+(none of the test or sample files has an untrusted one), and errs toward
+less trust, never more.
 
 ## Installing
 

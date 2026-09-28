@@ -371,18 +371,10 @@ def read_store(c2pa, path, lists, timestamp_trust=True):
     return store, remote
 
 
-# Why signer_trust() exists (c2pa-rs 0.91.0, checked in its source):
-# CertificateTrustPolicy::check_certificate_trust (sdk/src/crypto/cose/
-# certificate_trust/openssl.rs and rust_native.rs) tries every anchor set
-# of trust.anchors, whatever its trust_kind, and returns the first one the
-# certificate chains to. The signer's certificate and the time stamp
-# authority's are both checked that way, against the same sets. And the
-# settings put trust.anchors through a HashSet (merge_legacy_trust_anchors
-# in sdk/src/settings/mod.rs), so the order of the sets changes from one
-# read to the next. With the C2PA TSA Trust List among the anchors, a
-# signer that chains only to a time stamp authority's root is reported as
-# trusted, and a root on two lists (Google's is on the C2PA Trust List and
-# the TSA list) is reported as found in either, at random.
+# Why signer_trust() exists: given several trust lists, the library does
+# not keep signer and time stamp lists apart and names a matching list in
+# no fixed order, so the signer's trust is decided in a second read with
+# the signing lists only.
 
 def _results(store):
     """(key, validation results) of the active manifest ('' as key) and of
