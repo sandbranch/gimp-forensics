@@ -18,7 +18,8 @@ puts them all on one image as layers; **Image > Forensics > Content
 Credentials...** reads the file's credentials.
 
 `fetch-samples.py` needs only Python 3. `make-edits.py` and `measure.py`
-need Pillow and numpy. `measure.py` runs the operations built in `build/`
+need Pillow and numpy; `measure.py` also runs `jpeg-info-samples.py` in
+the Python of the GIMP Flatpak (the JPEG Info plug-in's report). `measure.py` runs the operations built in `build/`
 with the gegl command line inside the GIMP Flatpak, isolated as the tests
 are (`tests/isolate.sh`), and prints the mean of each result inside the
 edited region, in the rest of the image and in the same region of the
@@ -68,8 +69,89 @@ left of the full image.
 | `lake-clone.jpg` | `ribnica-lake-camera.jpg` | a 400 x 400 piece of dwarf pines from x 2820, y 1668 copied to x 2052, y 2086, over the snow at the bottom, with a 12 pixel soft edge | Clone Detection | **found**: 84 % of the source and 84 % of the copy marked, nothing else (0.00 %). ELA shows nothing (0.87 times the rest): a copy from the same image has the same compression history |
 | `lake-airbrush.jpg` | `ribnica-lake-camera.jpg` | the cloud at the right, an ellipse centred at x 3080, y 760, radii 480 x 200, blurred (Gaussian, radius 4) with a 24 pixel soft edge | Noise Analysis | Noise: the ellipse is **smoother**, 0.09 times the rest and 0.33 times the same cloud unedited, 95 % of its blocks below the 1st percentile of the others (a cloud is smooth anyway, hence the 0.33). ELA: a little darker, 0.69 times the rest |
 | `lake-double-jpeg.jpg` | `ribnica-lake-camera.jpg` | the whole photo saved at quality 70, then again at 90; nothing else | JPEG Ghost at 70 | JPEG Ghost at 70: **the whole image is dark**, normalised difference 0.06 against 0.56 for `lake-original.jpg` (saved once at 90). There is no edited region to compare: everything was compressed twice. ELA mean 0.56 against 0.68 |
+| `lake-resampled.png` | `ribnica-lake-camera.jpg` | a 384 x 384 piece of dwarf pines at x 2816, y 1664 replaced by its top left 307 x 307 enlarged by 1.25 (bicubic); saved as PNG | Resampling Detection; Min/Max Deviation | Resampling (64 x 64 blocks): the region's scores median 6.2 (lowest 4.5), elsewhere median 4.8 with 8.5 % of the other blocks above the region's median and a highest of 9.5: **a hint, not a clear mark** (on the synthetic texture of the tests the separation is clean). Min/Max density 0.59 times the rest (the same box in the original 1.10 times) |
+| `lake-resampled.jpg` | the same | the same, saved at quality 90 | Resampling Detection | **gone**: region median 4.7, as the rest (4.7); 49 % of the other blocks score higher. The JPEG save covers it |
+| `lake-median.png` | `ribnica-lake-camera.jpg` | the same piece filtered with a 3 x 3 median; saved as PNG | Median Filtering Detection; Min/Max Deviation | Median (32 x 32 blocks): **every one of the region's 20 judged blocks red**, but also 5.3 % of the judged blocks elsewhere (the camera JPEG's smooth parts). Min/Max density 0.14 times the rest |
+| `lake-median.jpg` | the same | the same, saved at quality 90 | Median Filtering Detection | **gone**: none of the region's 25 judged blocks red, 5.8 % elsewhere |
 | `eggs-original.jpg` | `eggs-camera.jpg` | the photo saved at quality 90 | Luminance Gradient | the reference |
 | `eggs-mirrored-egg.jpg` | `eggs-camera.jpg` | the large front egg, second from the left: its shell (by color) inside an ellipse centred at x 1505, y 1735, radii 380 x 440, replaced by its mirror image about x 1505, so its highlight moves from the upper left to the upper right; 6 pixel soft edge | Luminance Gradient | **Does not show clearly.** The mean of the normal map's red (the x slope) over the egg goes from 0.5012 to 0.5000; the other front eggs are 0.4999 to 0.5025. The light is soft and the egg nearly round, so the left and right halves differ mostly by the egg's shape (0.497 left, 0.503 right, before and after). The edit is plain to the eye (a sliver at the lower left shows); the tool does not single it out |
+
+## The second round tools on the samples
+
+Measured by `measure.py` as the rest (the region is the mask of the
+edit; Wavelet Noise Map in 8 bit levels of noise, Min/Max as the share
+of pixels that are extrema, Echo 0 to 1, Bit plane 0 as the share of
+horizontal neighbours with the same bit, 0.5 for noise).
+
+| File | Region | Wavelet Noise Map | Min/Max density | Echo | Bit plane 0 |
+|---|---|---|---|---|---|
+| `lake-airbrush.jpg` | the blurred cloud | 0.18 against 0.50 (x 0.37; the same cloud unedited 0.28) | 0.0007 against 0.020 (x 0.03; unedited x 0.32) | 0.018 against 0.122 (x 0.15; unedited x 0.28) | 0.80 equal against 0.54 (unedited 0.65) |
+| `lake-splice-plane.jpg` | the pasted plane | 1.20 against 0.49 (x 2.44; the same sky unedited 0.35) | 0.045 against 0.020 (x 2.31) | | |
+| `sogndal-composite.jpg` | the sky where the building was (a rectangle) | 2.22 against 0.56 (x 4.0) | | 0.079 against 0.106 (x 0.75) | |
+| `yezhov-removed.jpg` | the painted water on the right | 0.42 against 0.50 (x 0.84; the other print 1.05) | | | |
+| `pin-concealed.jpg` | the changed pixels (the digits) | | 0.080 against 0.041 (x 1.97) | | 0.51 against 0.57 |
+
+On these JPEG files the blurred cloud is plain in Min/Max and Echo, the
+pasted plane (noisier Kodak sky) in the Wavelet Noise Map and Min/Max;
+the hand retouching of the Yezhov print only barely, as with the other
+tools.
+
+**Median Filtering and Resampling Detection on untouched files** (the
+false alarms to expect): the share of judged 32 x 32 blocks marked red,
+and of 64 x 64 blocks scoring over 8:
+
+| File | Median: red blocks | Resampling: over 8 (highest) |
+|---|---|---|
+| `lake-original.jpg` (saved at 90) | 5.7 % | 0.33 % (9.2) |
+| `ribnica-lake-camera.jpg` (camera, tables of quality 100) | 5.3 % | 0.38 % (9.8) |
+| `oranges-camera.jpg` (camera, 94) | 19 % | 1.1 % (14.3) |
+| `eggs-camera.jpg` (camera, 97) | 0.27 % | 0.04 % (8.3) |
+| `lake-colorado-camera.jpg` (phone, about 85) | **45 %** | 3.1 % (15.1) |
+| `polyhaven-rocks-lossless.png` (PNG) | 6.1 % | 0 % (7.4) |
+| `kirksville-fake-tornado.png` (PNG of a book scan) | 3.7 % | **22 %** (11.8): the print's screen is periodic |
+
+So: Median Filtering Detection means little on JPEG files, the phone's
+own processing (denoising, sharpening) looks like it; Resampling
+Detection is quiet on camera photos and loud on scans of printed
+pictures, whose halftone is periodic too.
+
+**JPEG Info** on every sample JPEG (`jpeg-info-samples.py`): the quality
+of the last save, JPEGsnoop's class, the signature matches, double
+compression and the Exif thumbnail.
+
+| File | Last save | JPEGsnoop | Double compression | Exif thumbnail |
+|---|---|---|---|---|
+| `lake-double-jpeg.jpg` | 90, IJG tables | class 1 (no Exif: Pillow wrote none) | **likely, first save about 70** (it was 70) | none |
+| `lake-original.jpg` and the other lake edits | 90, IJG | class 1 | no sign (the camera's first save had steps of 1: a finer first save does not show) | none |
+| `ribnica-lake-camera.jpg` | 100 (all steps 1), IJG | class 4: no signature of the COOLPIX L23 in the database | cannot tell (steps of 1) | 160 x 120, 7.0 levels from the image, 3.0 % of its pixels over 32 |
+| `oranges-camera.jpg` | 94, IJG | class 4; 22 cameras share the tables, not the RX100 | no sign | 160 x 120 without bars although the photo is 1.40 wide (the camera squeezes it; JPEG Info notes the shape), 4.7 levels apart |
+| `eggs-camera.jpg` | about 97, the camera's own tables | class 4; 18 cameras match, not the EOS 250D | cannot tell | 160 x 120 with bars (rows 6 to 114), 1.6 levels apart |
+| `airplane-camera.jpg` | about 95 | class 4 | no sign | 2.0 levels apart |
+| `lake-colorado-camera.jpg` | about 85 | class 2 (no maker notes) | no sign | 320 x 240, 3.0 levels apart |
+| `phone-photo-adobe-cai.jpg` | 94, IJG (saved again by Adobe) | class 2 | no sign | 2.8 levels apart |
+| `sogndal-original.jpg` | about 93, Photoshop's Save As 10 | class 1: Exif names Lightroom | no sign | 256 x 170, 3.3 levels apart |
+| `sogndal-composite.jpg` | about 93, the same tables | class 1 | no sign | none: the composite has none |
+| `ptz-montage.jpg` | about 98, progressive | class 1 | cannot tell | 160 x 109, 7.8 levels apart, 4.1 % over 32 (the montage's own thumbnail) |
+| `firefly-landscape.jpg` | 75, IJG | class 1 | no sign | none |
+| `pin-original.jpg`, `pin-concealed.jpg` | 80 IJG; about 98 | class 1 | no sign; cannot tell | none |
+
+Every camera file gets class 4 (uncertain), the phone class 2: the
+database is from 2018 and knows none of these cameras with these tables. No thumbnail here
+differs from its image by the thresholds (12 levels on average or 5 % of
+the pixels); the test files of `tests/jpeg-info` show what an edit after
+the thumbnail looks like.
+
+**Double JPEG map**: `lake-double-jpeg.jpg` is white everywhere (100 %
+of its blocks saved twice). In `lake-splice-plane.jpg` the plane (saved
+at 60 before the whole was saved at 90) is **faint**: 22 on average in
+the plane's 428 blocks, 9 % of them at 128 or more, against 0.3
+elsewhere; the same place in `lake-original.jpg` is 0. The frequencies
+used fit a small twice saved part everywhere in both files (the lake's
+own statistics), which blurs the plane; on the synthetic splices of the
+tests the map is clean. `lake-clone.jpg` shows nothing (a copy from the
+same image has the same history). `sogndal-composite.jpg`,
+`ptz-montage.jpg` and `pin-concealed.jpg` get no map: no frequency fits a
+twice saved part.
 
 ## Content Credentials
 

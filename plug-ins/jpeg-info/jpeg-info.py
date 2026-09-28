@@ -100,9 +100,11 @@ def compare_thumbnail(path, thumb_bytes, report):
     t['compare'] = c
     ia = fr['width'] / fr['height']
     if t['box_aspect'] and abs(t['box_aspect'] / ia - 1) > 0.02:
-        report['hints'].append(('edit', 'Inside its black bars the thumbnail has another shape '
+        report['hints'].append(('note', 'Inside its black bars the thumbnail has another shape '
                                         '(%.3f) than the image (%.3f): the image was cropped or '
-                                        'resized after the thumbnail was made.'
+                                        'resized after the thumbnail was made, or the camera '
+                                        'squeezes its thumbnails (some do: compare a photo '
+                                        'known to be untouched from the same camera).'
                                 % (t['box_aspect'], ia)))
     elif c and (c['mean'] > 12 or c['share_over_32'] > 0.05):
         report['hints'].append(('edit', 'The thumbnail differs from the image (%.1f levels on '

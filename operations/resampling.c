@@ -45,8 +45,9 @@
  * Reliable only on images never saved as JPEG: the rounding of a JPEG
  * save, even at quality 95, covers the fine differences p looks at.
  * Resampling to less than about 1.1 or down to 0.8 leaves peaks too weak
- * to see. Blocks that are not whole at the image's right and bottom edges
- * are black. Written for this operation. Alpha is passed through.
+ * to see. Blocks that are not whole at the image's right and bottom edges,
+ * and blocks whose probability map hardly varies (flat or clipped content,
+ * standard deviation under 0.01), are black. Written for this operation. Alpha is passed through.
  */
 
 #include <glib/gi18n-lib.h>
@@ -325,6 +326,22 @@ process (GeglOperation       *operation,
           for (x = 0; x < b; x++)
             mean += p[(gsize) (y0 + y) * blk.width + x0 + x];
         mean /= (gdouble) b * b;
+        {
+          /* a block whose map is (nearly) constant, flat or clipped
+           * content: no periodicity to see, and its spectrum is noise over
+           * nearly nothing. Left black. */
+          gdouble var = 0;
+
+          for (y = 0; y < b; y++)
+            for (x = 0; x < b; x++)
+              {
+                gdouble d = p[(gsize) (y0 + y) * blk.width + x0 + x] - mean;
+
+                var += d * d;
+              }
+          if (var / ((gdouble) b * b) < 1e-4)
+            continue;
+        }
         for (y = 0; y < b; y++)
           for (x = 0; x < b; x++)
             {

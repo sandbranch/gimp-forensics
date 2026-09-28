@@ -7,7 +7,7 @@
 # the mean of each result inside the edited region against the rest of the
 # image and against the same region of the unedited photo.
 #
-#   samples/measure.py            everything (about a minute)
+#   samples/measure.py            everything (a few minutes)
 #   samples/measure.py --keep     keep the results (tests/output/samples/*.npy)
 #   samples/measure.py --png      also write a small PNG of each result there
 #
@@ -53,7 +53,33 @@ ELA_ALL = ['lake-original.jpg', 'lake-splice-plane.jpg', 'lake-clone.jpg',
            'kirksville-fake-tornado.png', 'oranges-camera.jpg', 'lake-colorado-camera.jpg',
            'ribnica-lake-camera.jpg', 'polyhaven-rocks-lossless.png',
            'phone-photo-adobe-cai.jpg', 'firefly-landscape.jpg']
-CASES = [(f, 'ela', ELA) for f in ELA_ALL] + [
+# the second round (after Sherloq)
+WNOISE = 'forensics:wavelet-noise gain=20'
+MINMAX = 'forensics:minmax mode=density gain=4'
+ECHO = 'forensics:echo'
+MEDIAN = 'forensics:median-detect'
+RESAMP = 'forensics:resampling'
+BIT0 = 'forensics:bit-plane bit=0'
+ROUND2 = [
+    ('lake-airbrush.jpg', 'wnoise', WNOISE), ('lake-original.jpg', 'wnoise', WNOISE),
+    ('lake-splice-plane.jpg', 'wnoise', WNOISE), ('sogndal-composite.jpg', 'wnoise', WNOISE),
+    ('yezhov-removed.jpg', 'wnoise', WNOISE), ('yezhov-original.jpg', 'wnoise', WNOISE),
+    ('lake-airbrush.jpg', 'minmax', MINMAX), ('lake-original.jpg', 'minmax', MINMAX),
+    ('lake-splice-plane.jpg', 'minmax', MINMAX), ('lake-resampled.png', 'minmax', MINMAX),
+    ('lake-median.png', 'minmax', MINMAX), ('pin-concealed.jpg', 'minmax', MINMAX),
+    ('lake-airbrush.jpg', 'echo', ECHO), ('lake-original.jpg', 'echo', ECHO),
+    ('sogndal-composite.jpg', 'echo', ECHO),
+    ('lake-airbrush.jpg', 'bit0', BIT0), ('lake-original.jpg', 'bit0', BIT0),
+    ('pin-concealed.jpg', 'bit0', BIT0),
+] + [(f, 'median', MEDIAN) for f in [
+    'lake-median.png', 'lake-median.jpg', 'lake-original.jpg', 'ribnica-lake-camera.jpg',
+    'oranges-camera.jpg', 'polyhaven-rocks-lossless.png', 'kirksville-fake-tornado.png',
+    'eggs-camera.jpg', 'lake-colorado-camera.jpg']] + [(f, 'resamp', RESAMP) for f in [
+    'lake-resampled.png', 'lake-resampled.jpg', 'lake-original.jpg', 'ribnica-lake-camera.jpg',
+    'oranges-camera.jpg', 'polyhaven-rocks-lossless.png', 'kirksville-fake-tornado.png',
+    'eggs-camera.jpg', 'lake-colorado-camera.jpg']]
+
+CASES = ROUND2 + [(f, 'ela', ELA) for f in ELA_ALL] + [
     ('lake-original.jpg', 'ghost60', GHOST60), ('lake-splice-plane.jpg', 'ghost60', GHOST60),
     ('lake-original.jpg', 'ghost70', GHOST70), ('lake-double-jpeg.jpg', 'ghost70', GHOST70),
     ('lake-original.jpg', 'ghostmin', GHOSTMIN), ('lake-splice-plane.jpg', 'ghostmin', GHOSTMIN),
@@ -75,7 +101,10 @@ CASES = [(f, 'ela', ELA) for f in ELA_ALL] + [
 
 
 def out_path(name, label):
-    return os.path.join(OUT, '%s.%s.npy' % (os.path.splitext(name)[0], label))
+    # (the extension too: lake-median.png and lake-median.jpg are two)
+    base, ext = os.path.splitext(name.split(' ')[0])
+    return os.path.join(OUT, '%s%s.%s.npy' % (base, '' if ext == '.jpg' else ext.replace('.', '-'),
+                                              label))
 
 
 def run_gegl():
@@ -98,6 +127,22 @@ def run_gegl():
     r = subprocess.run(['sh', '-c', '\n'.join(lines)])
     if r.returncode:
         sys.exit('measure.py: the isolated run failed (%d)' % r.returncode)
+
+
+def run_jpeg_info():
+    """jpeg-info-samples.py in the Python of the GIMP Flatpak, isolated:
+    its lines"""
+    lines = ['set -e', 'src=%s' % shlex.quote(SRC), 'here="$src/tests"',
+             'GIMP_RUN_HOME="$here/output/gimp-home"', 'export GIMP_RUN_HOME',
+             '. "$here/isolate.sh"',
+             'snapshot_take "$here/output/samples/snapshot-jpeg-before.txt"',
+             'gimp_run --timeout=1800 --flatpak --filesystem="$src" -- python3 %s %s' % (
+                 shlex.quote(os.path.join(HERE, 'jpeg-info-samples.py')), shlex.quote(IMAGES)),
+             'snapshot_check "$here/output/samples/snapshot-jpeg-before.txt" "" >&2']
+    r = subprocess.run(['sh', '-c', '\n'.join(lines)], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit('measure.py: jpeg-info-samples.py failed (%d): %s' % (r.returncode, r.stderr))
+    return r.stdout.rstrip('\n').split('\n')
 
 
 def encode(v):
@@ -250,6 +295,93 @@ def main():
                 rest[y:y + s, x:x + s] = False
             parts.append('rest %.2f %%' % (100 * c[rest].mean()))
             line += ': ' + ', '.join(parts)
+        say(line)
+
+    say('== second round: Wavelet Noise Map (noise level in 8 bit levels), Min/Max density '
+        '(share of extrema), Echo (mean 0 to 1), Bit plane 0 (share of equal neighbours)')
+    box = np.zeros(gray('lake-resampled.png', 'minmax').shape, bool)
+    bxr = regions['lake-resampled.png']['box']
+    box[bxr[1]:bxr[1] + bxr[3], bxr[0]:bxr[0] + bxr[2]] = True
+
+    def wlevel(name, m, label, orig=None):
+        e = gray(name, 'wnoise') * 255 / 20
+        line = '  WNoise  %-26s %-10s region %6.2f  rest %6.2f  (x%.2f)' % (
+            name, label, e[m].mean(), e[~m].mean(), e[m].mean() / e[~m].mean())
+        if orig:
+            o = gray(orig, 'wnoise') * 255 / 20
+            line += '  same region in %s %6.2f' % (orig, o[m].mean())
+        say(line)
+
+    def mm(name, m, label):
+        r = result(name, 'minmax')
+        e = (r[..., 0] + r[..., 1]) / 4
+        say('  MinMax  %-26s %-10s region %.4f  rest %.4f  (x%.2f)' % (
+            name, label, e[m].mean(), e[~m].mean(), e[m].mean() / e[~m].mean()))
+
+    def bit0(name, m, label):
+        b = gray(name, 'bit0') > 0.5
+        eq = np.zeros(b.shape, bool)
+        eq[:, :-1] = b[:, :-1] == b[:, 1:]
+        say('  Bit0    %-26s %-10s equal neighbours: region %.3f  rest %.3f' % (
+            name, label, eq[m].mean(), eq[~m].mean()))
+
+    wlevel('lake-airbrush.jpg', ab, 'airbrush', 'lake-original.jpg')
+    wlevel('lake-splice-plane.jpg', sp, 'plane', 'lake-original.jpg')
+    wlevel('sogndal-composite.jpg', cloud, 'cloud')
+    wlevel('yezhov-removed.jpg', gone, 'right')
+    wlevel('yezhov-original.jpg', was, 'right')
+    for name, m, label in (('lake-airbrush.jpg', ab, 'airbrush'), ('lake-original.jpg', ab, 'airbrush'),
+                           ('lake-splice-plane.jpg', sp, 'plane'),
+                           ('lake-resampled.png', box, 'resampled'), ('lake-median.png', box, 'median'),
+                           ('lake-original.jpg', box, 'that box'), ('pin-concealed.jpg', pin, 'digits')):
+        if (name, 'minmax', MINMAX) in CASES:
+            mm(name, m, label)
+    for name, m, label in (('lake-airbrush.jpg', ab, 'airbrush'), ('lake-original.jpg', ab, 'airbrush'),
+                           ('sogndal-composite.jpg', cloud, 'cloud')):
+        e = gray(name, 'echo')
+        say('  Echo    %-26s %-10s region %.3f  rest %.3f  (x%.2f)' % (
+            name, label, e[m].mean(), e[~m].mean(), e[m].mean() / e[~m].mean()))
+    for name, m, label in (('lake-airbrush.jpg', ab, 'airbrush'), ('lake-original.jpg', ab, 'airbrush'),
+                           ('pin-concealed.jpg', pin, 'digits')):
+        bit0(name, m, label)
+
+    say('== Median Filtering Detection (32 x 32 blocks): share of the judged blocks marked red')
+    for name, label, op in CASES:
+        if label != 'median':
+            continue
+        r = result(name, 'median')
+        hb, wb = r.shape[0] // 32, r.shape[1] // 32
+        c = r[16:hb * 32:32, 16:wb * 32:32]
+        red = c[..., 0] > 0.5
+        judged = c[..., 2] < 0.5
+        inb = box[16:hb * 32:32, 16:wb * 32:32] if name.startswith('lake-median') else None
+        if inb is not None:
+            say('  %-30s region: %.0f %% of %d judged; elsewhere %.2f %% of %d' % (
+                name, 100 * (red & inb).sum() / max((judged & inb).sum(), 1), (judged & inb).sum(),
+                100 * (red & ~inb).sum() / max((judged & ~inb).sum(), 1), (judged & ~inb).sum()))
+        else:
+            say('  %-30s %.2f %% of %d judged blocks (%d blocks too flat)' % (
+                name, 100 * red.sum() / max(judged.sum(), 1), judged.sum(), (~judged).sum()))
+
+    say('== Resampling Detection (64 x 64 blocks): the score')
+    for name, label, op in CASES:
+        if label != 'resamp':
+            continue
+        sc = gray(name, 'resamp') * 16
+        hb, wb = sc.shape[0] // 64, sc.shape[1] // 64
+        c = sc[32:hb * 64:64, 32:wb * 64:64]
+        if name.startswith('lake-resampled'):
+            inb = box[32:hb * 64:64, 32:wb * 64:64]
+            say('  %-30s region: min %.1f median %.1f; elsewhere median %.1f, 99th %.1f, max %.1f; '
+                'blocks elsewhere above the region\'s median %.2f %%' % (
+                    name, c[inb].min(), np.median(c[inb]), np.median(c[~inb]),
+                    np.percentile(c[~inb], 99), c[~inb].max(),
+                    100 * (c[~inb] > np.median(c[inb])).mean()))
+        else:
+            say('  %-30s median %.1f, 99th %.1f, max %.1f, share above 8: %.2f %%' % (
+                name, np.median(c), np.percentile(c, 99), c.max(), 100 * (c > 8).mean()))
+
+    for line in run_jpeg_info():
         say(line)
 
     with open(os.path.join(OUT, 'measure.txt'), 'w') as f:

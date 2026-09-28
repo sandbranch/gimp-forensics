@@ -39,6 +39,12 @@
 #   lake-double-jpeg.jpg     the lake photo saved at quality 70, opened and
 #                            saved again at quality 90: the whole image is
 #                            double compressed, nothing else changed
+#   lake-resampled.png, .jpg a 384 x 384 piece of dwarf pines at x 2816,
+#                            y 1664 replaced by its top left 307 x 307
+#                            enlarged by 1.25 (bicubic); as PNG, and saved
+#                            at quality 90
+#   lake-median.png, .jpg    the same piece filtered with a 3 x 3 median;
+#                            as PNG, and saved at quality 90
 #   eggs-original.jpg        eggs-camera.jpg (Canon EOS 250D) saved at 90
 #   eggs-mirrored-egg.jpg    the large egg in the front, second from the
 #                            left (its shell, found by its color, inside an
@@ -176,6 +182,28 @@ regions['lake-airbrush.jpg'] = {'mask': 'lake-airbrush-mask.png'}
 
 # double compression
 save(jpeg(lake, 70), 'lake-double-jpeg.jpg')
+
+# a region enlarged by 1.25 and one median filtered (3 x 3), for Resampling
+# and Median Filtering Detection, which work on images never saved as JPEG:
+# each as PNG, and as JPEG at quality 90 to show the difference
+bx, by, bs = 2816, 1664, 384                    # dwarf pines, on the 64 grid
+small = Image.fromarray(to8(lake[by:by + round(bs / 1.25), bx:bx + round(bs / 1.25)]))
+big = np.asarray(small.resize((bs, bs), Image.BICUBIC), dtype=np.float64)
+resampled = lake.copy()
+resampled[by:by + bs, bx:bx + bs] = big
+med = np.asarray(Image.fromarray(to8(lake[by - 1:by + bs + 1, bx - 1:bx + bs + 1]))
+                 .filter(ImageFilter.MedianFilter(3)), dtype=np.float64)[1:-1, 1:-1]
+median = lake.copy()
+median[by:by + bs, bx:bx + bs] = med
+m = np.zeros((H, W))
+m[by:by + bs, bx:bx + bs] = 1
+for name, a in (('lake-resampled', resampled), ('lake-median', median)):
+    Image.fromarray(to8(a)).save(os.path.join(IMAGES, name + '.png'))
+    print('wrote', name + '.png')
+    save(a, name + '.jpg')
+    save_mask(m, name + '-mask.png')
+    for ext in ('.png', '.jpg'):
+        regions[name + ext] = {'mask': name + '-mask.png', 'box': [bx, by, bs, bs]}
 
 # ------------------------------------------------------------------ eggs
 

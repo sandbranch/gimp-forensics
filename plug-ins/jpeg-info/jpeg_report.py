@@ -2004,8 +2004,9 @@ def make_hints(rep):
             ', saved at IJG quality %d' % t['quality'] if t.get('quality_exact') else '')))
         if ia and ta and abs(ia / ta - 1) > 0.02:
             hints.append(('note', 'The thumbnail\'s shape (%.3f) differs from the image\'s '
-                                  '(%.3f): black bars, or the image was cropped or resized '
-                                  'after the thumbnail was made. Compare them (Thumbnail).'
+                                  '(%.3f): black bars, a camera that squeezes its thumbnails, '
+                                  'or the image was cropped or resized after the thumbnail '
+                                  'was made.'
                                   % (ta, ia)))
     d = rep.get('double')
     if d:

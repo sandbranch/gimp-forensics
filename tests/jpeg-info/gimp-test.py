@@ -106,8 +106,8 @@ image.delete()
 
 image = load('thumb-cropped.jpg')
 status, rep = info(image)
-check('cropped_image_other_shape', any('another shape' in t for t in hints(rep, 'edit')),
-      '; '.join(hints(rep, 'edit')))
+check('cropped_image_other_shape', any('another shape' in t for t in hints(rep, 'note')),
+      '; '.join(t for t in hints(rep, 'note') if 'shape' in t))
 image.delete()
 
 image = load('thumb-bars.jpg')
@@ -115,7 +115,7 @@ status, rep = info(image)
 t = rep['thumbnail']
 x0, y0, x1, y1 = t['box']
 check('black_bars_found', (x0, x1) == (0, 160) and 5 <= y0 <= 7 and 112 <= y1 <= 114 and
-      t['compare']['mean'] < 6 and not any('shape' in s for s in hints(rep, 'edit')),
+      t['compare']['mean'] < 6 and not any('another shape' in s for s in hints(rep, 'note')),
       'content %s, mean difference %.2f' % (t['box'], t['compare']['mean']))
 image.delete()
 
