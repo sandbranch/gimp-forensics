@@ -550,8 +550,9 @@ and libjpeg (libjpeg-turbo); on Debian and Ubuntu:
 
     sudo apt install gimp libgimp-3.0-dev libjpeg-dev meson ninja-build
 
-The operations go to `~/.local/share/gegl-0.4/plug-ins`, the plug-ins
-to `~/.config/GIMP/3.2/plug-ins`:
+The operations go to `~/.local/share/gegl-0.4/plug-ins/gimp-forensics`
+(a folder of their own, which GEGL also loads), the plug-ins to
+`~/.config/GIMP/3.2/plug-ins`:
 
     meson setup build -Dmoduledir=$HOME/.local/share/gegl-0.4/plug-ins \
       -Dplugindir=$HOME/.config/GIMP/3.2/plug-ins

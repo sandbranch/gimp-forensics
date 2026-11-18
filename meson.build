@@ -43,7 +43,10 @@ foreach op, sources : operations
     c_args: ['-DGETTEXT_PACKAGE="gimp-forensics"'],
     gnu_symbol_visibility: 'hidden',
     install: true,
-    install_dir: moduledir,
+    # in a folder of its own: GEGL loads the modules below its plug-in
+    # folders too, and these short names (noise.so, echo.so) could clash
+    # with other operations installed there
+    install_dir: moduledir / meson.project_name(),
   )}
 endforeach
 
