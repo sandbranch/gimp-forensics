@@ -32,20 +32,17 @@ export FORENSICS_BROADWAY
 # the page size is set in each call: Chrome forgets it when cdp.mjs ends
 cdp () { node "$devtools/gui/cdp.mjs" "size:$view" "$@"; }
 
+# the GIMP of this test: the process that runs open-image.py
 ours () {
-    flatpak ps --columns=instance,child-pid,application 2>/dev/null |
-      while read -r instance pid app; do
-          [ "$app" = org.gimp.GIMP ] || continue
-          tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" |
-            grep -qF "$here/open-image.py" && echo "$instance"
-      done
+    pgrep -f -x "gimp-3.2 .*$here/open-image.py.*"
 }
 [ -z "$(ours)" ] || { echo "FAIL  gui: the test's GIMP is already running"; exit 1; }
 chrome_pid=
 gimp_pid=
 cleanup () {
-    for instance in $(ours); do
-        flatpak kill "$instance" 2>/dev/null
+    for pid in $(ours); do
+        pkill -P "$pid" 2>/dev/null
+        kill "$pid" 2>/dev/null
     done
     [ -n "$gimp_pid" ] && kill "$gimp_pid" 2>/dev/null
     if [ -n "$chrome_pid" ]; then

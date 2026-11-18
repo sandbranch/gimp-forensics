@@ -1,10 +1,9 @@
 #!/bin/sh
-# The Forensics Workbench in the Flatpak GIMP without a window
+# The Forensics Workbench in the native GIMP without a window
 # (tests/workbench-check.py), with the operations from build/ (or $BUILD)
 # and the plug-in from plug-ins/ in a throwaway GIMP profile
 # (tests/output/workbench-profile), isolated from your folders
-# (tests/isolate.sh), so that nothing lands in ~/.config/GIMP or
-# ~/.var/app/org.gimp.GIMP. Before and after, it lists your folders of
+# (tests/isolate.sh), so that nothing lands in ~/.config/GIMP. Before and after, it lists your folders of
 # GIMP and the other apps (gimp-devtools/snapshot.sh) and fails if
 # anything there changed. Exits non-zero if a check fails.
 #
@@ -37,10 +36,13 @@ export GIMP_RUN_HOME
 . "$here/isolate.sh"
 snapshot_take "$here/output/snapshot-workbench-before.txt"
 
+# GEGL's own operations, which GEGL_PATH replaces
+gegl_ops=$(pkg-config --variable=pluginsdir gegl-0.4) ||
+  { echo "FAIL  no GEGL development files (pkg-config gegl-0.4)"; exit 1; }
+
 status=0
-gimp_run --flatpak --filesystem="$top" \
-  --env=GIMP3_DIRECTORY="$profile" \
-  --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
+gimp_run --env=GIMP3_DIRECTORY="$profile" \
+  --env=GEGL_PATH="$mod:$gegl_ops" \
   --env=FORENSICS_CHECK_OUT="$out" --env=FORENSICS_SRC="$top" -- \
   gimp-console-3.2 --new-instance --no-interface --no-data --no-fonts \
   --batch-interpreter python-fu-eval \

@@ -126,7 +126,7 @@ export(img, 'q90.jpg', 90)
 export(img, 'q75-progressive.jpg', 75, progressive=True, optimize=True)
 # restart markers: GIMP 3.2.6 writes them only from its dialog (its
 # use-restart is an auxiliary argument that a script cannot set), so
-# jpegtran of the Flatpak adds them, losslessly
+# jpegtran adds them, losslessly
 p = export(img, 'q95-444.jpg', 95, sub='sub-sampling-1x1')
 subprocess.run(['jpegtran', '-restart', '2', '-copy', 'all', '-outfile',
                 os.path.join(OUT, 'q95-444-restart.jpg'), p], check=True)

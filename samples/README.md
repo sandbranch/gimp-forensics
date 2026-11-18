@@ -10,7 +10,7 @@ The images are not in git. To get them:
 
     samples/fetch-samples.py     # downloads into samples/images, checks SHA-256, writes CREDITS.txt
     samples/make-edits.py        # makes the edited images (Pillow and numpy)
-    samples/measure.py           # optional: the numbers below (GEGL in the isolated GIMP Flatpak)
+    samples/measure.py           # optional: the numbers below (GEGL of the native GIMP, isolated)
 
 Then open `samples/images` in GIMP. Each filter is under **Filters >
 Forensics**; **Image > Forensics > Analyze Image...** (the Workbench)
@@ -19,8 +19,8 @@ Credentials...** reads the file's credentials.
 
 `fetch-samples.py` needs only Python 3. `make-edits.py` and `measure.py`
 need Pillow and numpy; `measure.py` also runs `jpeg-info-samples.py` in
-the Python of the GIMP Flatpak (the JPEG Info plug-in's report). `measure.py` runs the operations built in `build/`
-with the gegl command line inside the GIMP Flatpak, isolated as the tests
+the Python that GIMP's plug-ins use (the JPEG Info plug-in's report). `measure.py` runs the operations built in `build/`
+with the gegl command line (on Debian and Ubuntu the package `gegl`), isolated as the tests
 are (`tests/isolate.sh`), and prints the mean of each result inside the
 edited region, in the rest of the image and in the same region of the
 unedited photo, with the share of the region's 16 x 16 blocks beyond the

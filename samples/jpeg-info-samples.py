@@ -2,7 +2,7 @@
 # The JPEG Info plug-in's report on every sample JPEG, as the plug-in makes
 # it (jpeg_report.py, and the thumbnail comparison of jpeg-info.py with
 # GdkPixbuf), and the double JPEG map of the lake photos. Runs in the
-# Python of the GIMP Flatpak; samples/measure.py starts it (isolated, as
+# Python that GIMP's plug-ins use; samples/measure.py starts it (isolated, as
 # the tests) and adds its lines to tests/output/samples/measure.txt.
 #
 #   jpeg-info-samples.py <samples/images>

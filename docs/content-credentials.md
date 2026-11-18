@@ -120,7 +120,7 @@ is decided against the trust lists that come with the plug-in, in
 `update-trust-lists.py --latest` fetches newer lists. Your own trust
 anchors (a PEM file of CA certificates, for example of your newsroom or
 your own test CA) go in the GIMP folder, `content-credentials/trust-anchors.pem`
-(for the Flatpak `~/.config/GIMP/3.2/content-credentials/trust-anchors.pem`);
+(for GIMP 3.2 `~/.config/GIMP/3.2/content-credentials/trust-anchors.pem`);
 a signer that chains to them is shown as trusted by "your own trust
 anchors".
 
@@ -155,7 +155,7 @@ C2PA library, fetched once (the only step that uses the network):
     plug-ins/content-credentials/fetch-deps.py
 
 Then copy the whole folder, with `vendor/` and `trust/`, into GIMP's
-plug-in folder (for the Flatpak and for a native GIMP 3.2 alike,
+plug-in folder (for GIMP 3.2,
 `~/.config/GIMP/3.2/plug-ins/content-credentials/`) and restart GIMP.
 
 ### The C2PA library, and why this one
@@ -246,7 +246,7 @@ credentials in it.
 - `gui/gui-test.sh` opens the dialog on a Broadway display for six files,
   takes screenshots and closes it.
 
-Everything runs in the GIMP Flatpak isolated from your own folders
+Everything runs in the native GIMP isolated from your own folders
 (`tests/isolate.sh`, from gimp-devtools), and a listing of your GIMP
 folders before and after must be the same.
 

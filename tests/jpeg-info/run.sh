@@ -1,7 +1,7 @@
 #!/bin/sh
 # Tests the JPEG Info plug-in (plug-ins/jpeg-info): makes the fixtures in
 # headless GIMP (make-fixtures.py), runs unit.py (the report, in the
-# Python of the GIMP Flatpak; its coefficient decoder against libjpeg
+# Python that GIMP's plug-ins use; its coefficient decoder against libjpeg
 # through build/tests/jpeg-coefficients) and gimp-test.py (the plug-in in
 # GIMP without a window), with the plug-in in a throwaway profile
 # (tests/output/jpeg-info/profile), isolated from your folders
@@ -33,7 +33,7 @@ cp "$src"/plug-ins/jpeg-info/*.py "$src"/plug-ins/jpeg-info/*.tsv "$profile/plug
 chmod +x "$profile/plug-ins/jpeg-info/jpeg-info.py"
 
 console () {
-    gimp_run --timeout=900 --flatpak --filesystem="$src" \
+    gimp_run --timeout=900 \
       --env=GIMP3_DIRECTORY="$profile" --env=JI_OUT="$out" --env=JI_SRC="$src" -- \
       gimp-console-3.2 --new-instance --no-interface --no-data --no-fonts \
       --batch-interpreter python-fu-eval -b "exec(open('$1').read())" --quit
@@ -43,7 +43,7 @@ console "$here/make-fixtures.py" >"$out/make-fixtures.log" 2>&1
 grep -q "^JI fixtures written" "$out/make-fixtures.log" ||
   { cat "$out/make-fixtures.log"; echo "FAIL  make-fixtures.py"; exit 1; }
 
-gimp_run --timeout=900 --flatpak --filesystem="$src" --env=JI_OUT="$out" --env=JI_SRC="$src" \
+gimp_run --timeout=900 --env=JI_OUT="$out" --env=JI_SRC="$src" \
   --env=JI_COEFS="$build/tests/jpeg-coefficients" -- python3 "$here/unit.py" >"$out/unit.log" 2>&1
 grep -E "^(PASS|FAIL)|Traceback|Error" "$out/unit.log"
 grep -q "^JI unit failures: 0$" "$out/unit.log" || status=1

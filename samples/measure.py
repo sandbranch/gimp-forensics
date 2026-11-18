@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Runs the forensics operations of build/ on the sample images with the
-# gegl command line, in the GIMP Flatpak isolated from your folders
+# gegl command line and the native GIMP's GEGL, isolated from your folders
 # (tests/isolate.sh: HOME and the XDG folders in tests/output/gimp-home;
 # your folders of GIMP and the other apps are listed before and after and
 # must be the same), and prints the numbers that samples/README.md quotes:
@@ -120,8 +120,9 @@ def run_gegl():
         cmds.append('gegl %s -o %s -- %s 2>>%s/gegl.log || echo FAILED %s %s' % (
             shlex.quote(os.path.join(IMAGES, name)), shlex.quote(out_path(name, label)), op,
             shlex.quote(OUT), name, label))
-    lines.append('gimp_run --timeout=1200 --flatpak --filesystem="$src" '
-                 '--env=GEGL_PATH=%s:/app/lib/gegl-0.4 -- sh -c %s' % (
+    lines.append('gimp_run --timeout=1200 '
+                 '--env=GEGL_PATH=%s:"$(pkg-config --variable=pluginsdir gegl-0.4)" '
+                 '-- sh -c %s' % (
                      shlex.quote(mod), shlex.quote('\n'.join(cmds))))
     lines.append('snapshot_check "$here/output/samples/snapshot-before.txt" ""')
     r = subprocess.run(['sh', '-c', '\n'.join(lines)])
@@ -130,13 +131,13 @@ def run_gegl():
 
 
 def run_jpeg_info():
-    """jpeg-info-samples.py in the Python of the GIMP Flatpak, isolated:
+    """jpeg-info-samples.py in the Python GIMP's plug-ins use, isolated:
     its lines"""
     lines = ['set -e', 'src=%s' % shlex.quote(SRC), 'here="$src/tests"',
              'GIMP_RUN_HOME="$here/output/gimp-home"', 'export GIMP_RUN_HOME',
              '. "$here/isolate.sh"',
              'snapshot_take "$here/output/samples/snapshot-jpeg-before.txt"',
-             'gimp_run --timeout=1800 --flatpak --filesystem="$src" -- python3 %s %s' % (
+             'gimp_run --timeout=1800 -- python3 %s %s' % (
                  shlex.quote(os.path.join(HERE, 'jpeg-info-samples.py')), shlex.quote(IMAGES)),
              'snapshot_check "$here/output/samples/snapshot-jpeg-before.txt" "" >&2']
     r = subprocess.run(['sh', '-c', '\n'.join(lines)], capture_output=True, text=True)

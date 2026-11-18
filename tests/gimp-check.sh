@@ -1,5 +1,5 @@
 #!/bin/sh
-# The operations as non-destructive filters in the Flatpak GIMP, without a
+# The operations as non-destructive filters in the native GIMP, without a
 # window (tests/gimp-check.py): on float, 8 and 16 bit images, through an
 # XCF save and load, against plain GEGL; Error Level Analysis against
 # GIMP's own JPEG export; then GIMP's results against the gegl command
@@ -9,8 +9,9 @@
 # takes about a minute (GIMP sets up the new profile). GIMP and GEGL run
 # isolated from your folders (tests/isolate.sh, with
 # gimp-devtools/gimp-run.sh if it is there): HOME and the XDG
-# folders inside the Flatpak point into tests/output/gimp-home, so
-# nothing lands in ~/.var/app/org.gimp.GIMP.
+# folders point into tests/output/gimp-home, so nothing lands in your
+# own folders. The comparison needs the gegl command line (on Debian and
+# Ubuntu the package gegl).
 # Before and after, it lists your folders of GIMP and the other apps
 # (gimp-devtools/snapshot.sh, skipped without it) and fails if
 # anything there changed. Exits non-zero if a check fails.
@@ -36,12 +37,14 @@ export GIMP_RUN_HOME
 snapshot_take "$here/output/snapshot-gimp-before.txt"
 # GEGL loads every file in a module folder: only the modules
 cp "$build"/*.so "$mod/"
+# GEGL's own operations, which GEGL_PATH replaces
+gegl_ops=$(pkg-config --variable=pluginsdir gegl-0.4) ||
+  { echo "FAIL  no GEGL development files (pkg-config gegl-0.4)"; exit 1; }
 
-# run <command...>: in the GIMP Flatpak
+# run <command...>: isolated, with the native GIMP's GEGL
 run () {
-  gimp_run --flatpak --filesystem="$top" \
-    --env=GIMP3_DIRECTORY="$here/output/gimp-profile" \
-    --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
+  gimp_run --env=GIMP3_DIRECTORY="$here/output/gimp-profile" \
+    --env=GEGL_PATH="$mod:$gegl_ops" \
     --env=FORENSICS_CHECK_OUT="$out" -- "$@"
 }
 
@@ -53,13 +56,18 @@ run gimp-console-3.2 --new-instance --no-interface --no-data --no-fonts \
 [ "$(cat "$out/gimp-check.status" 2>/dev/null)" = 0 ] || status=1
 
 # the same settings on the gegl command line
-while read -r label op props; do
-  # (the gegl command line itself reports a leaked GeglBuffer for area
-  # filters, gegl:gaussian-blur too: its messages go to a log)
-  # shellcheck disable=SC2086
-  run gegl "$out/scene.tif" -o "$out/cli-$label.tif" -- "$op" $props \
-    >>"$out/gegl-cli.log" 2>&1
-done <"$out/cli-cases.txt"
+if command -v gegl >/dev/null 2>&1; then
+  while read -r label op props; do
+    # (the gegl command line itself reports a leaked GeglBuffer for area
+    # filters, gegl:gaussian-blur too: its messages go to a log)
+    # shellcheck disable=SC2086
+    run gegl "$out/scene.tif" -o "$out/cli-$label.tif" -- "$op" $props \
+      >>"$out/gegl-cli.log" 2>&1
+  done <"$out/cli-cases.txt"
+else
+  echo "FAIL  no gegl command line (on Debian and Ubuntu: sudo apt install gegl)"
+  status=1
+fi
 
 run python3 - "$out" <<'EOF' || status=1
 import array, sys

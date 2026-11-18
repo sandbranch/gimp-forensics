@@ -1,5 +1,5 @@
 #!/bin/sh
-# Starts the Flatpak GIMP on a Broadway display, on the port
+# Starts the native GIMP on a Broadway display, on the port
 # CC_BROADWAY_PORT (8087 by default; the page is http://127.0.0.1:port/)
 # with gui-script.py, which opens CC_GUI_FILE and the Content Credentials
 # dialog, in the throwaway profile of tests/content-credentials/run.sh
@@ -8,7 +8,7 @@
 # often hung at start while loading them. GIMP runs isolated from your own
 # folders (tests/isolate.sh), with the throwaway home of run.sh, and as a
 # new instance (--new-instance): otherwise it hands the image over to any
-# other GIMP of the Flatpak that is running, and quits.
+# other GIMP that is running, and quits.
 #
 #   CC_GUI_FILE=tests/content-credentials/images/c2pa-rs-ocsp.jpg \
 #     tests/content-credentials/gui/start.sh
@@ -30,7 +30,7 @@ mkdir -p "$out"
 # no Welcome dialog: GIMP shows it when the profile is of an older
 # version, or when asked to
 if ! grep -q config-version "$profile/gimprc" 2>/dev/null; then
-    version=$(LC_ALL=C flatpak info org.gimp.GIMP | sed -n 's/^ *Version: *//p')
+    version=$(gimp-console-3.2 --version | sed 's/.* //')
     printf '(config-version "%s")\n' "$version" >> "$profile/gimprc"
 fi
 grep -q show-welcome-dialog "$profile/gimprc" 2>/dev/null ||
@@ -39,8 +39,7 @@ rm -f "$profile/sessionrc"
 GIMP_RUN_HOME=${GIMP_RUN_HOME:-$tests/output/gimp-home}
 # shellcheck source=SCRIPTDIR/../../isolate.sh
 . "$src/tests/isolate.sh"
-gimp_run --flatpak --filesystem="$src" \
-  --env=GDK_BACKEND=broadway --env=BROADWAY_DISPLAY=:$display \
+gimp_run --env=GDK_BACKEND=broadway --env=BROADWAY_DISPLAY=:$display \
   --env=GIMP3_DIRECTORY="$profile" --env=CC_OUT="$out" \
   --env=CC_GUI_FILE="${CC_GUI_FILE:?}" -- sh -c \
   "broadwayd --port $port :$display & bw=\$!; trap 'kill \$bw' EXIT; \

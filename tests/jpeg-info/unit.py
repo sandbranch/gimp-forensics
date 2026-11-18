@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Checks of jpeg_report.py (the JPEG Info plug-in's report) without GIMP,
-# in the Python of the GIMP Flatpak (tests/jpeg-info/run.sh), on the
+# in the Python that GIMP's plug-ins use (tests/jpeg-info/run.sh), on the
 # fixtures of make-fixtures.py and, if they are there, the sample images
 # (samples/images):
 #

@@ -99,7 +99,7 @@ group), not on one layer.
 ## Error Level Analysis
 
 The image is saved again as a JPEG at a known quality, in memory with
-libjpeg (the libjpeg-turbo of GIMP's Flatpak), and the difference is
+libjpeg (libjpeg-turbo), and the difference is
 shown, amplified (Krawetz, "A Picture's Worth...", Black Hat 2007). Parts
 of a JPEG image that were saved as often, on the same block grid, change
 about as much; a region pasted from another picture or painted over often
@@ -544,22 +544,28 @@ settings.
 
 ## Building and installing
 
-Needs meson, ninja, a C compiler, GEGL 0.4.62 or newer with its
-development files, and libjpeg (libjpeg-turbo).
+For the native GIMP 3 (the GIMP Flatpak is not supported). Needs meson,
+ninja, a C compiler, GEGL 0.4.62 or newer with its development files,
+and libjpeg (libjpeg-turbo); on Debian and Ubuntu:
+
+    sudo apt install gimp libgimp-3.0-dev libjpeg-dev meson ninja-build
+
+The operations go to `~/.local/share/gegl-0.4/plug-ins`, the plug-ins
+to `~/.config/GIMP/3.2/plug-ins`:
 
     meson setup build -Dmoduledir=$HOME/.local/share/gegl-0.4/plug-ins \
       -Dplugindir=$HOME/.config/GIMP/3.2/plug-ins
     ninja -C build install
 
-For the Flatpak version of GIMP, build inside it with
-[gimp-devtools](https://github.com/sandbranch/gimp-devtools),
-which installs the operations into
-`~/.var/app/org.gimp.GIMP/data/gegl-0.4/plug-ins`:
+Or the same through
+[gimp-devtools](https://github.com/sandbranch/gimp-devtools), which
+finds both folders:
 
     gimp-build.sh . meson setup build -Dmoduledir=\$GEGL_OPDIR -Dplugindir=\$GIMP_PLUGINDIR
     gimp-build.sh . ninja -C build install
 
-Restart GIMP after installing. On the command line:
+Restart GIMP after installing. On the gegl command line (on Debian and
+Ubuntu the package `gegl`):
 
     gegl photo.jpg -o ela.png -- forensics:error-level quality=90 scale=20
 
@@ -583,11 +589,13 @@ anything changed.
   16 bit and linear input, pieces against the whole image, the region a
   change invalidates) besides their own.
 - `tests/gimp-check.sh`: 179 checks of the filters in headless GIMP
-  3.2.6: they are filters, the layer keeps its pixels, settings survive
+  3.2.8: they are filters, the layer keeps its pixels, settings survive
   an XCF save and load, the results equal plain GEGL and the gegl command
   line, on float, 8 and 16 bit images; Error Level Analysis against the
   way the GIMP 2 scripts did it (GIMP's JPEG export, load, difference):
   0.024 levels apart on average (GIMP loads JPEG with the float IDCT).
+  The comparison with the command line needs `gegl` (the package `gegl`
+  on Debian and Ubuntu).
 - `tests/jpeg-info/run.sh`: 49 checks of JPEG Info on JPEG files that
   GIMP writes (and jpegtran, for restart markers): the report without
   GIMP (tables, qualities, signatures, the coefficient decoder against
@@ -609,7 +617,8 @@ anything changed.
 ## Speed
 
 A 6000 x 4000 image (24 megapixels), rendered into a float buffer, Ryzen 9
-5900X (12 cores, 24 threads), GIMP's Flatpak GEGL 0.4.72:
+5900X (12 cores, 24 threads), GEGL 0.4.72 (measured 2026-09 with the GEGL of
+the GIMP Flatpak; the native GIMP 3.2.8 here has the same GEGL version):
 
 | | 24 threads | 1 thread |
 |---|---|---|

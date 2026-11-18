@@ -1,5 +1,5 @@
 #!/bin/sh
-# Opens the Flatpak GIMP on a Broadway display with a synthetic edited
+# Opens the native GIMP on a Broadway display with a synthetic edited
 # photo (open-image.py), with the operations from build/ (or $BUILD) and
 # the plug-ins of this repository in a throwaway profile, isolated from
 # your folders (tests/isolate.sh). For looking at the filters in GIMP's
@@ -33,7 +33,7 @@ mkdir -p "$out" "$mod" "$profile/plug-ins"
 # no Welcome dialog: GIMP shows it when the profile is of an older
 # version, or when asked to
 if ! grep -q config-version "$profile/gimprc" 2>/dev/null; then
-    version=$(LC_ALL=C flatpak info org.gimp.GIMP | sed -n 's/^ *Version: *//p')
+    version=$(gimp-console-3.2 --version | sed 's/.* //')
     printf '(config-version "%s")\n' "$version" >> "$profile/gimprc"
 fi
 grep -q show-welcome-dialog "$profile/gimprc" 2>/dev/null ||
@@ -80,10 +80,29 @@ GIMP_RUN_HOME=${GIMP_RUN_HOME:-$tests/output/gimp-home}
 export GIMP_RUN_HOME
 # shellcheck source=SCRIPTDIR/../isolate.sh
 . "$tests/isolate.sh"
-gimp_run --flatpak --filesystem="$src" \
-  --env=GDK_BACKEND=broadway --env=BROADWAY_DISPLAY=":$display" \
+# The positions this test clicks were measured with DejaVu Sans as the
+# default sans font; the system's own default (Noto Sans on Ubuntu, for
+# one) has taller lines and moves every menu item. So the throwaway home
+# gets a fontconfig file that makes "Sans" DejaVu Sans (fonts-dejavu-core
+# on Debian and Ubuntu).
+mkdir -p "$GIMP_RUN_HOME/.config/fontconfig"
+cat >"$GIMP_RUN_HOME/.config/fontconfig/fonts.conf" <<'FONTS'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <match target="pattern">
+    <test name="family"><string>Sans</string></test>
+    <edit name="family" mode="assign" binding="strong"><string>DejaVu Sans</string></edit>
+  </match>
+  <match target="pattern">
+    <test name="family"><string>sans-serif</string></test>
+    <edit name="family" mode="prepend" binding="strong"><string>DejaVu Sans</string></edit>
+  </match>
+</fontconfig>
+FONTS
+gimp_run --env=GDK_BACKEND=broadway --env=BROADWAY_DISPLAY=":$display" \
   --env=GIMP3_DIRECTORY="$profile" \
-  --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
+  --env=GEGL_PATH="$mod:$(pkg-config --variable=pluginsdir gegl-0.4)" \
   --env=FORENSICS_GUI_OUT="$out" -- sh -c \
   "broadwayd --port $port :$display & bw=\$!; trap 'kill \$bw' EXIT; \
    i=0; while [ ! -f '$out/page-open' ] && [ \$i -lt 300 ]; do sleep 0.2; i=\$((i+1)); done; sleep 3; \

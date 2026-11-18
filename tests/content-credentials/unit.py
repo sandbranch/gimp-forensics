@@ -4,7 +4,7 @@
 # the library missing, a planted libc2pa_c.so in the current folder, the
 # settings (offline), trust with your own anchors, the XMP readers, the
 # vocabulary, and the text (plain words, no dashes). tests/run.sh runs it
-# with the Python of the GIMP Flatpak; it also runs with any Python 3.
+# with the Python that GIMP's plug-ins use; it also runs with any Python 3.
 #
 # Prints "CC PASS <check>" or "CC FAIL <check>: <why>", and
 # "CC unit failures: <n>" at the end.

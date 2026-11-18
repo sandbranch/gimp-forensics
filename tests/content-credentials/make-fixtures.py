@@ -132,8 +132,8 @@ def sign(c2pa, manifest, src, dst, ingredients=(), by=None):
             b.add_ingredient(spec, mime, f)
     if os.path.exists(dst):
         os.remove(dst)
-    # (with the MIME type given: the Python of the Flatpak does not know
-    # every extension)
+    # (with the MIME type given: Python's mimetypes does not know every
+    # extension on every system)
     mime = MIME[os.path.splitext(dst)[1][1:]]
     with open(src, 'rb') as source, open(dst, 'w+b') as dest:
         b.sign(by or signer(c2pa), mime, source, dest)

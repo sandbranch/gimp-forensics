@@ -65,17 +65,9 @@ part check "$here/check.sh"
 
 gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
 if [ ! -f "$top/build/build.ninja" ]; then
-    if [ "${GIMP_FLATPAK:-1}" = 1 ] && [ -x "$gimp_build" ]; then
-        "$gimp_build" "$top" meson setup build >/dev/null
-    else
-        (cd "$top" && meson setup build >/dev/null)
-    fi
+    "$gimp_build" "$top" meson setup build >/dev/null
 fi
-if [ "${GIMP_FLATPAK:-1}" = 1 ] && [ -x "$gimp_build" ]; then
-    part build "$gimp_build" "$top" ninja -C build
-else
-    part build ninja -C "$top/build"
-fi
+part build "$gimp_build" "$top" ninja -C build
 
 part gimp-check "$here/gimp-check.sh"
 part workbench-check "$here/workbench-check.sh"
