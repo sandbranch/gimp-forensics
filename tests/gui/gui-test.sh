@@ -64,13 +64,41 @@ fi
 start=$(area_mean "$out/start.png")
 if [ -f "$out/filters-menu.png" ]; then pass "filters_menu_open"; else fail "filters_menu_open"; fi
 
-y=575
+# each filter is opened by its title from Search Actions (/), so that
+# neither the other filters in its menu nor Recently Used can move it; on
+# Broadway the search field needs a click before it takes the keys, and
+# the title is typed word by word (look.sh's steps cannot hold spaces)
+SEARCH_FIELD=360,176
+title () {
+    case $1 in
+        bit-plane) echo "Bit Planes" ;;
+        clone-detect) echo "Clone Detection" ;;
+        echo) echo "Echo Edge Filter" ;;
+        error-level) echo "Error Level Analysis" ;;
+        jpeg-ghost) echo "JPEG Ghost" ;;
+        luminance-gradient) echo "Luminance Gradient" ;;
+        median-detect) echo "Median Filtering Detection" ;;
+        minmax) echo "Min/Max Deviation" ;;
+        noise) echo "Noise Analysis" ;;
+        pca) echo "Principal Components" ;;
+        resampling) echo "Resampling Detection" ;;
+        wavelet-noise) echo "Wavelet Noise Map" ;;
+    esac
+}
+# the title as text: and key:Space steps
+type_title () {
+    first=1
+    for word in $(title "$1"); do
+        [ -n "$first" ] || printf ' key:Space'
+        printf ' text:%s' "$word"
+        first=
+    done
+}
 for name in bit-plane clone-detect echo error-level jpeg-ghost luminance-gradient median-detect \
     minmax noise pca resampling wavelet-noise; do
-    look click:452,72 wait:1500 move:485,575 wait:1200 move:700,575 \
-      move:750,$y wait:600 click:750,$y wait:4000 dialog:$dx,150 wait:6000 \
-      shot:dialog-$name
-    y=$((y + 25))
+    # shellcheck disable=SC2046 # one step per word
+    look wait:1000 key:/ wait:1500 click:$SEARCH_FIELD wait:500 $(type_title $name) \
+      wait:1500 key:Enter wait:4000 dialog:$dx,150 wait:6000 shot:dialog-$name
     if [ ! -f "$out/dialog-$name.png" ]; then
         fail "dialog_$name: no screenshot"
         continue
